@@ -31,7 +31,11 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- Plano deve incluir medidas de segurança para processamento de pagamentos via PIXGO.
+- Implementar controle de acesso baseado em administradores e usuários comuns.
+- Integrar com APIs externas de forma testada e monitorada.
+- Incluir sistema de logs para ações do bot.
+- Garantir simplicidade e escalabilidade no design.
 
 ## Project Structure
 

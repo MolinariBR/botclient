@@ -1,50 +1,40 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!-- Sync Impact Report:
+Version change: none → 1.0.0
+List of modified principles: All new
+Added sections: Core Principles, Requisitos Técnicos, Processo de Desenvolvimento, Governance
+Removed sections: none
+Templates requiring updates: plan-template.md (updated), spec-template.md (pending), tasks-template.md (pending)
+Follow-up TODOs: none
+-->
+# BOT TELEGRAM PARA GESTÃO DE GRUPOS VIPS Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### Segurança de Pagamentos e Dados
+Todos os pagamentos devem ser processados de forma segura utilizando a API do PIXGO com chaves protegidas. Dados sensíveis como API keys e endereços de carteira devem ser armazenados de forma criptografada e nunca expostos em logs ou código público.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### Controle de Acesso Estrito
+Apenas administradores podem executar comandos administrativos no chat direto com o bot. Usuários comuns interagem apenas no grupo VIP, com acesso baseado em status de assinatura.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### Integração com APIs Externas
+Utilizar a API do PIXGO para geração de pagamentos PIX e consulta de status. Suporte a endereço USDT Polygon fixo para pagamentos alternativos. Todas as integrações devem ser testadas e monitoradas.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### Comunicação e Logs
+Manter logs detalhados de todas as ações do bot, incluindo entradas, banimentos e pagamentos. Comunicação com usuários deve ser clara e seguir regras definidas.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### Simplicidade e Escalabilidade
+O código deve ser simples, seguindo princípios YAGNI. O sistema deve ser escalável para múltiplos grupos VIP, com renovação automática de assinaturas.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Requisitos Técnicos
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+Utilizar Python ou Node.js para o bot Telegram. Integrar com Telegram Bot API usando token fornecido. Armazenar dados em banco de dados seguro (ex: PostgreSQL). Seguir boas práticas de segurança para APIs.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+## Processo de Desenvolvimento
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+Desenvolver com testes automatizados. Revisão de código obrigatória. Deploy em produção após testes de integração.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+Constituição governa todas as práticas. Emendas requerem aprovação de administradores e documentação. Versão segue semver.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2025-10-28 | **Last Amended**: 2025-10-28

@@ -1,0 +1,210 @@
+openapi: 3.0.0
+info:
+  title: PixGo API
+  version: 1.0.0
+  description: API para pagamentos PIX
+
+servers:
+  - url: https://pixgo.org/api/v1
+
+paths:
+  /payment/create:
+    post:
+      summary: Criar pagamento PIX
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - amount
+              properties:
+                amount:
+                  type: number
+                  minimum: 10.00
+                description:
+                  type: string
+                  maxLength: 200
+                customer_name:
+                  type: string
+                  maxLength: 100
+                customer_cpf:
+                  type: string
+                  pattern: '^\d{11}(\d{3})?$'
+                customer_email:
+                  type: string
+                  format: email
+                customer_phone:
+                  type: string
+                  maxLength: 20
+                customer_address:
+                  type: string
+                  maxLength: 500
+                external_id:
+                  type: string
+                  maxLength: 50
+      responses:
+        '201':
+          description: Pagamento criado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      payment_id:
+                        type: string
+                      external_id:
+                        type: string
+                      amount:
+                        type: number
+                      status:
+                        type: string
+                        enum: [pending, completed, expired, cancelled]
+                      qr_code:
+                        type: string
+                      qr_image_url:
+                        type: string
+                      expires_at:
+                        type: string
+                        format: date-time
+                      created_at:
+                        type: string
+                        format: date-time
+        '400':
+          description: Erro de validação
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                  message:
+                    type: string
+
+  /payment/{id}/status:
+    get:
+      summary: Consultar status do pagamento
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Status do pagamento
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      payment_id:
+                        type: string
+                      external_id:
+                        type: string
+                      amount:
+                        type: number
+                      status:
+                        type: string
+                        enum: [pending, completed, expired, cancelled]
+                      customer_name:
+                        type: string
+                      customer_cpf:
+                        type: string
+                      customer_phone:
+                        type: string
+                      created_at:
+                        type: string
+                        format: date-time
+                      updated_at:
+                        type: string
+                        format: date-time
+
+  /payment/{id}:
+    get:
+      summary: Detalhes do pagamento
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Detalhes completos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      payment_id:
+                        type: string
+                      external_id:
+                        type: string
+                      amount:
+                        type: number
+                      status:
+                        type: string
+                        enum: [pending, completed, expired, cancelled]
+                      qr_code:
+                        type: string
+                      qr_image_url:
+                        type: string
+                      customer_name:
+                        type: string
+                      customer_cpf:
+                        type: string
+                      customer_email:
+                        type: string
+                      customer_phone:
+                        type: string
+                      customer_address:
+                        type: string
+                      expires_at:
+                        type: string
+                        format: date-time
+                      created_at:
+                        type: string
+                        format: date-time
+                      updated_at:
+                        type: string
+                        format: date-time
+
+security:
+  - ApiKeyAuth: []
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
