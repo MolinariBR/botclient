@@ -17,9 +17,10 @@ specify/
 github/
 
 # Database local (opcional - manter se quiser versionar dados de teste)
-# *.db
-# *.sqlite
-# *.sqlite3
+*.db
+*.sqlite
+*.sqlite3
+botclient.db
 
 # Logs locais
 logs/*.log
