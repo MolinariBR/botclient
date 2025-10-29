@@ -117,7 +117,12 @@ LOG_FILE=logs/bot.log
    ```
    *Substitua `@seu_usuario` pelo seu username do Telegram*
 
-3. **Verifique se foi registrado:**
+3. **O bot irá:**
+   - ✅ Registrar você como o primeiro administrador
+   - ✅ Confirmar a configuração
+   - ✅ Dar permissões de "super admin"
+
+4. **Verifique se foi registrado:**
    ```
    /admins
    ```
@@ -128,6 +133,8 @@ Como admin, você pode adicionar outros admins:
 ```
 /add @usuario_admin
 ```
+
+**Nota:** O comando `/add` agora suporta bootstrap automático - o primeiro usuário a usar o comando se torna automaticamente o admin inicial.
 
 ## 📱 Configuração de Grupos
 
