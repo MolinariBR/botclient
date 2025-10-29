@@ -243,23 +243,37 @@ tests/
 
 ### SquareCloud (Recomendado)
 
-1. Faça upload do código
-2. Configure as variáveis de ambiente
-3. Defina `src/main.py` como arquivo principal
-4. Configure Python 3.11+
+O projeto está totalmente configurado para deploy na SquareCloud. Siga o guia completo em [`SQUARECLOUD-DEPLOY.md`](SQUARECLOUD-DEPLOY.md).
 
-### Docker
+#### Configuração Rápida:
 
-```dockerfile
-FROM python:3.11-slim
+1. **Arquivos prontos**:
+   - ✅ `squarecloud.app` - Configuração da SquareCloud
+   - ✅ `requirements.txt` - Dependências Python
+   - ✅ `start.sh` - Script de inicialização
+   - ✅ `.gitignore` - Arquivos excluídos do deploy
 
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+2. **Deploy em 3 passos**:
+   ```bash
+   # 1. Compactar projeto (excluindo arquivos desnecessários)
+   zip -r bot-vip-telegram.zip . -x "*.git*" "*.venv*" "venv/*" "*.log" ".env"
 
-COPY . .
-CMD ["python", "src/main.py"]
-```
+   # 2. Upload no painel SquareCloud
+   # https://squarecloud.app/pt-br/upload
+
+   # 3. Configurar variáveis de ambiente no painel
+   ```
+
+3. **Variáveis obrigatórias**:
+   - `TELEGRAM_TOKEN` - Token do bot
+   - `PIXGO_API_KEY` - Chave da API PixGo
+   - `DATABASE_URL` - URL do banco (SQLite recomendado)
+
+#### Recursos SquareCloud:
+- **512MB RAM** - Suporte a ~1000 usuários
+- **Uptime garantido** - Monitoramento 24/7
+- **Logs em tempo real** - Debug facilitado
+- **Auto-scaling** - Performance automática
 
 ## 🔧 Solução de Problemas
 
