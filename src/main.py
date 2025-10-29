@@ -19,6 +19,7 @@ from services.mute_service import MuteService
 from services.pixgo_service import PixGoService
 from services.usdt_service import USDTService
 from services.telegram_service import TelegramService
+from services.logging_service import LoggingService
 from utils.config import Config
 from utils.logger import setup_logging
 from utils.performance import performance_monitor
@@ -66,10 +67,11 @@ def main():
     usdt_service = USDTService(Config.USDT_WALLET_ADDRESS)
     telegram_service = TelegramService(Config.TELEGRAM_TOKEN)
     mute_service = MuteService(db)
+    logging_service = LoggingService()
 
     # Handlers
     user_handlers = UserHandlers(db, pixgo_service, usdt_service)
-    admin_handlers = AdminHandlers(db, telegram_service)
+    admin_handlers = AdminHandlers(db, telegram_service, logging_service)
 
     # Telegram application
     application = Application.builder().token(Config.TELEGRAM_TOKEN).build()
@@ -81,6 +83,9 @@ def main():
     application.add_handler(CommandHandler("renew", user_handlers.renew_handler))
     application.add_handler(CommandHandler("help", user_handlers.help_handler))
     application.add_handler(CommandHandler("invite", user_handlers.invite_handler))
+    application.add_handler(CommandHandler("cancel", user_handlers.cancel_handler))
+    application.add_handler(CommandHandler("support", user_handlers.support_handler))
+    application.add_handler(CommandHandler("info", user_handlers.info_handler))
 
     # Payment callbacks
     application.add_handler(CallbackQueryHandler(user_handlers.payment_callback_handler, pattern="^pay_"))
@@ -91,9 +96,30 @@ def main():
     application.add_handler(CommandHandler("group_id", admin_handlers.group_id_handler))
     application.add_handler(CommandHandler("kick", admin_handlers.kick_handler))
     application.add_handler(CommandHandler("ban", admin_handlers.ban_handler))
+    application.add_handler(CommandHandler("mute", admin_handlers.mute_handler))
+    application.add_handler(CommandHandler("unban", admin_handlers.unban_handler))
+    application.add_handler(CommandHandler("unmute", admin_handlers.unmute_handler))
+    application.add_handler(CommandHandler("userinfo", admin_handlers.userinfo_handler))
+    application.add_handler(CommandHandler("pending", admin_handlers.pending_handler))
+    application.add_handler(CommandHandler("warn", admin_handlers.warn_handler))
+    application.add_handler(CommandHandler("resetwarn", admin_handlers.resetwarn_handler))
+    application.add_handler(CommandHandler("expire", admin_handlers.expire_handler))
+    application.add_handler(CommandHandler("sendto", admin_handlers.sendto_handler))
     application.add_handler(
         CommandHandler("broadcast", admin_handlers.broadcast_handler)
     )
+    application.add_handler(CommandHandler("setprice", admin_handlers.setprice_handler))
+    application.add_handler(CommandHandler("settime", admin_handlers.settime_handler))
+    application.add_handler(CommandHandler("setwallet", admin_handlers.setwallet_handler))
+    application.add_handler(CommandHandler("rules", admin_handlers.rules_handler))
+    application.add_handler(CommandHandler("welcome", admin_handlers.welcome_handler))
+    application.add_handler(CommandHandler("schedule", admin_handlers.schedule_handler))
+    application.add_handler(CommandHandler("stats", admin_handlers.stats_handler))
+    application.add_handler(CommandHandler("logs", admin_handlers.logs_handler))
+    application.add_handler(CommandHandler("admins", admin_handlers.admins_handler))
+    application.add_handler(CommandHandler("settings", admin_handlers.settings_handler))
+    application.add_handler(CommandHandler("backup", admin_handlers.backup_handler))
+    application.add_handler(CommandHandler("restore", admin_handlers.restore_handler))
 
     # Start the bot
     logging.info("Starting bot...")

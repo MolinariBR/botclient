@@ -617,3 +617,161 @@ class TestUserHandlers:
 
         # Execute - should not raise exception
         await user_handlers.invite_handler(update, context)
+
+    @pytest.mark.asyncio
+    async def test_cancel_handler_success(self, user_handlers, mock_telegram_user, mock_message, mock_chat):
+        """Test /cancel handler success case"""
+        # Setup
+        update = Mock(spec=Update)
+        update.effective_user = mock_telegram_user
+        update.message = mock_message
+        update.effective_chat = mock_chat
+        context = Mock()
+
+        # Mock database user with active subscription
+        from src.models.user import User
+        mock_db_user = Mock(spec=User)
+        mock_db_user.status_assinatura = "active"
+        mock_db_user.auto_renew = True
+        user_handlers.db.query.return_value.filter_by.return_value.first.return_value = mock_db_user
+
+        # Execute
+        await user_handlers.cancel_handler(update, context)
+
+        # Assert
+        assert mock_db_user.auto_renew == False
+        user_handlers.db.commit.assert_called_once()
+        mock_message.reply_text.assert_called_once()
+        response_text = mock_message.reply_text.call_args[0][0]
+        assert "Renovação automática desabilitada com sucesso" in response_text
+
+    @pytest.mark.asyncio
+    async def test_cancel_handler_user_not_found(self, user_handlers, mock_telegram_user, mock_message, mock_chat):
+        """Test /cancel handler when user is not found"""
+        # Setup
+        update = Mock(spec=Update)
+        update.effective_user = mock_telegram_user
+        update.message = mock_message
+        update.effective_chat = mock_chat
+        context = Mock()
+
+        # Mock user not found
+        user_handlers.db.query.return_value.filter_by.return_value.first.return_value = None
+
+        # Execute
+        await user_handlers.cancel_handler(update, context)
+
+        # Assert
+        mock_message.reply_text.assert_called_once_with("❌ Usuário não encontrado. Use /start primeiro.")
+
+    @pytest.mark.asyncio
+    async def test_cancel_handler_no_active_subscription(self, user_handlers, mock_telegram_user, mock_message, mock_chat):
+        """Test /cancel handler when user has no active subscription"""
+        # Setup
+        update = Mock(spec=Update)
+        update.effective_user = mock_telegram_user
+        update.message = mock_message
+        update.effective_chat = mock_chat
+        context = Mock()
+
+        # Mock database user with inactive subscription
+        from src.models.user import User
+        mock_db_user = Mock(spec=User)
+        mock_db_user.status_assinatura = "inactive"
+        user_handlers.db.query.return_value.filter_by.return_value.first.return_value = mock_db_user
+
+        # Execute
+        await user_handlers.cancel_handler(update, context)
+
+        # Assert
+        mock_message.reply_text.assert_called_once_with("❌ Você não possui uma assinatura ativa para cancelar.")
+
+    @pytest.mark.asyncio
+    async def test_cancel_handler_private_chat(self, user_handlers, mock_telegram_user, mock_message, mock_chat):
+        """Test /cancel handler in private chat (should fail)"""
+        # Setup
+        update = Mock(spec=Update)
+        update.effective_user = mock_telegram_user
+        update.message = mock_message
+        update.effective_chat = mock_chat
+        mock_chat.type = "private"
+        context = Mock()
+
+        # Execute
+        await user_handlers.cancel_handler(update, context)
+
+        # Assert
+        mock_message.reply_text.assert_called_once_with("❌ Comandos de usuário só podem ser executados em grupos.")
+
+    @pytest.mark.asyncio
+    async def test_support_handler_success(self, user_handlers, mock_telegram_user, mock_message, mock_chat):
+        """Test /support handler success case"""
+        # Setup
+        update = Mock(spec=Update)
+        update.effective_user = mock_telegram_user
+        update.message = mock_message
+        update.effective_chat = mock_chat
+        context = Mock()
+
+        # Execute
+        await user_handlers.support_handler(update, context)
+
+        # Assert
+        mock_message.reply_text.assert_called_once()
+        response_text = mock_message.reply_text.call_args[0][0]
+        assert "Suporte Técnico" in response_text
+        assert "suporte@viptelegram.com" in response_text
+        assert "@suporte_vip_bot" in response_text
+
+    @pytest.mark.asyncio
+    async def test_support_handler_private_chat(self, user_handlers, mock_telegram_user, mock_message, mock_chat):
+        """Test /support handler in private chat (should fail)"""
+        # Setup
+        update = Mock(spec=Update)
+        update.effective_user = mock_telegram_user
+        update.message = mock_message
+        update.effective_chat = mock_chat
+        mock_chat.type = "private"
+        context = Mock()
+
+        # Execute
+        await user_handlers.support_handler(update, context)
+
+        # Assert
+        mock_message.reply_text.assert_called_once_with("❌ Comandos de usuário só podem ser executados em grupos.")
+
+    @pytest.mark.asyncio
+    async def test_info_handler_success(self, user_handlers, mock_telegram_user, mock_message, mock_chat):
+        """Test /info handler success case"""
+        # Setup
+        update = Mock(spec=Update)
+        update.effective_user = mock_telegram_user
+        update.message = mock_message
+        update.effective_chat = mock_chat
+        context = Mock()
+
+        # Execute
+        await user_handlers.info_handler(update, context)
+
+        # Assert
+        mock_message.reply_text.assert_called_once()
+        response_text = mock_message.reply_text.call_args[0][0]
+        assert "Sobre o Grupo VIP Telegram" in response_text
+        assert "acesso exclusivo a grupos VIP" in response_text
+
+    @pytest.mark.asyncio
+    async def test_info_handler_private_chat(self, user_handlers, mock_telegram_user, mock_message, mock_chat):
+        """Test /info handler in private chat (should fail)"""
+        # Setup
+        update = Mock(spec=Update)
+        update.effective_user = mock_telegram_user
+        update.message = mock_message
+        update.effective_chat = mock_chat
+        mock_chat.type = "private"
+        context = Mock()
+
+        # Execute
+        await user_handlers.info_handler(update, context)
+
+        # Assert
+        mock_message.reply_text.assert_called_once_with("❌ Comandos de usuário só podem ser executados em grupos.")

@@ -38,9 +38,14 @@ class TestBroadcastIntegration:
         return Mock(spec=TelegramService)
 
     @pytest.fixture
-    def admin_handlers(self, db_session, mock_telegram_service):
+    def mock_logging_service(self):
+        """Mock logging service"""
+        return Mock()
+
+    @pytest.fixture
+    def admin_handlers(self, db_session, mock_telegram_service, mock_logging_service):
         """Admin handlers instance with real database"""
-        return AdminHandlers(db_session, mock_telegram_service)
+        return AdminHandlers(db_session, mock_telegram_service, mock_logging_service)
 
     def create_test_admin(self, db_session, telegram_id="12345", username="admin"):
         """Create a test admin in the database"""

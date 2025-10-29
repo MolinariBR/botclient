@@ -61,7 +61,9 @@ class TestUserModel:
             data_expiracao=expiration_date,
             is_banned=True,
             is_muted=True,
-            mute_until=mute_until
+            mute_until=mute_until,
+            warn_count=2,
+            auto_renew=False
         )
         db_session.add(user)
         db_session.commit()
@@ -73,6 +75,8 @@ class TestUserModel:
         assert user.is_banned is True
         assert user.is_muted is True
         assert user.mute_until == mute_until
+        assert user.warn_count == 2
+        assert user.auto_renew is False
 
     def test_telegram_id_uniqueness(self, db_session):
         """Test that telegram_id must be unique"""
@@ -103,6 +107,8 @@ class TestUserModel:
         assert user.status_assinatura == "inactive"
         assert user.is_banned is False
         assert user.is_muted is False
+        assert user.warn_count == 0
+        assert user.auto_renew is True
         assert user.created_at is not None
         assert user.updated_at is not None
 
@@ -133,7 +139,8 @@ class TestUserModel:
             user_id=user.id,
             pixgo_payment_id="pix_123",
             amount=10.0,
-            status="pending"
+            status="pending",
+            completed_at=None
         )
         db_session.add(payment)
         db_session.commit()
@@ -145,6 +152,43 @@ class TestUserModel:
         # Test reverse relationship (Payment -> User)
         assert payment.user.id == user.id
         assert payment.user.username == "testuser"
+
+    def test_payment_completed_at_field(self, db_session):
+        """Test Payment completed_at field functionality"""
+        from datetime import datetime
+
+        user = User(telegram_id="123456789", username="testuser")
+        db_session.add(user)
+        db_session.commit()
+
+        # Test payment with completed_at = None
+        pending_payment = Payment(
+            user_id=user.id,
+            pixgo_payment_id="pix_pending",
+            amount=10.0,
+            status="pending",
+            completed_at=None
+        )
+        db_session.add(pending_payment)
+        db_session.commit()
+
+        assert pending_payment.completed_at is None
+        assert pending_payment.status == "pending"
+
+        # Test payment with completed_at set
+        completion_time = datetime.utcnow()
+        completed_payment = Payment(
+            user_id=user.id,
+            pixgo_payment_id="pix_completed",
+            amount=10.0,
+            status="completed",
+            completed_at=completion_time
+        )
+        db_session.add(completed_payment)
+        db_session.commit()
+
+        assert completed_payment.completed_at == completion_time
+        assert completed_payment.status == "completed"
 
     def test_user_group_membership_relationship(self, db_session):
         """Test User-GroupMembership relationship"""

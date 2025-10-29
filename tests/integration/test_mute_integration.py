@@ -40,9 +40,14 @@ class TestMuteIntegration:
         return Mock(spec=TelegramService)
 
     @pytest.fixture
-    def admin_handlers(self, db_session, mock_telegram_service):
+    def mock_logging_service(self):
+        """Mock logging service"""
+        return Mock()
+
+    @pytest.fixture
+    def admin_handlers(self, db_session, mock_telegram_service, mock_logging_service):
         """Admin handlers instance with real database"""
-        return AdminHandlers(db_session, mock_telegram_service)
+        return AdminHandlers(db_session, mock_telegram_service, mock_logging_service)
 
     @pytest.fixture
     def mute_service(self, db_session):

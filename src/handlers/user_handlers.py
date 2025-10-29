@@ -308,65 +308,215 @@ Aguarde as instruções de pagamento...""",
             parse_mode="Markdown"
         )
 
-    @measure_performance("user_handlers.status_handler")
-
     @measure_performance("user_handlers.help_handler")
     async def help_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /help command"""
+        """Handle /help command - show available commands"""
+        user = update.effective_user
         message = update.message
         chat = update.effective_chat
-        if not message or not chat:
+        if not user or not message or not chat:
             return
 
-        # Show different help based on chat type
-        if chat.type == "private":
-            # In private chat, show all commands (user + admin)
-            help_text = f"""
-🤖 **Bot VIP Telegram - Todos os Comandos**
+        # Check if user is admin
+        from src.models.admin import Admin
+        is_admin = self.db.query(Admin).filter(Admin.telegram_id == user.id).first() is not None
 
-**📋 Comandos Gerais:**
-/start - Iniciar o bot
-/pay - Iniciar pagamento da assinatura VIP
-/status - Ver status da sua assinatura
-/renew - Renovar assinatura
-/help - Mostrar esta ajuda
-/invite - Gerar link de convite
+        help_text = f"""
+🤖 **Bot VIP Telegram - Ajuda**
 
-**👑 Comandos de Admin:**
-/add - Adicionar usuário ao grupo VIP
-/kick - Remover usuário do grupo
-/ban - Banir usuário permanentemente
-/mute - Silenciar usuário temporariamente
-/check - Verificar status de usuário
-/broadcast - Enviar mensagem para todos
-/register_group - Registrar um grupo para broadcasts
-/group_id - Obter ID do grupo atual (usar no grupo)
+Olá {user.first_name}! Aqui estão os comandos disponíveis:
 
-💰 **Preço:** R$ {Config.SUBSCRIPTION_PRICE}
-⏰ **Duração:** {Config.SUBSCRIPTION_DAYS} dias
+---
 
-📍 **Nota:** Comandos de admin só funcionam aqui no chat privado.
+## � **Comandos de Usuário**
+
+`/start` — Inicia o bot e mostra informações básicas
+`/help` — Mostra esta mensagem de ajuda
+`/pay` — Gera QR Code ou link de pagamento para assinatura
+`/status` — Verifica o status da sua assinatura
+`/renew` — Renova sua assinatura automaticamente
+`/cancel` — Cancela a renovação automática da assinatura
+`/support` — Abre canal de suporte com administradores
+`/info` — Mostra informações sobre o grupo/mentoria
+`/invite` — Gera seu link pessoal de convite
+
+---
+
+## 👑 **Comandos Administrativos**
+"""
+
+        if is_admin:
+            help_text += """
+### Gerenciamento de Membros
+`/add @usuario` — Adiciona manualmente um usuário
+`/kick @usuario` — Remove um usuário do grupo
+`/ban @usuario` — Bane permanentemente um usuário
+`/unban @usuario` — Remove o banimento de um usuário
+`/mute @usuario [tempo]` — Silencia um usuário por tempo determinado
+`/unmute @usuario` — Remove o silêncio de um usuário
+`/warn @usuario [motivo]` — Envia um aviso ao usuário
+`/resetwarn @usuario` — Zera os avisos do usuário
+`/userinfo @usuario` — Exibe informações detalhadas do usuário
+
+### Controle de Acesso & Assinaturas
+`/check @usuario` — Verifica status do pagamento/assinatura
+`/renew @usuario` — Renova manualmente a assinatura do usuário
+`/expire @usuario` — Expira manualmente o acesso do usuário
+`/pending` — Lista usuários com pagamentos pendentes
+
+### Comunicação & Anúncios
+`/broadcast [mensagem]` — Envia mensagem para todos os membros
+`/schedule [hora] [mensagem]` — Programa mensagem automática
+`/rules` — Envia as regras do grupo
+`/welcome` — Define mensagem de boas-vindas
+`/sendto @usuario [mensagem]` — Envia mensagem privada
+
+### Configurações & Monitoramento
+`/settings` — Abre painel de configurações do bot
+`/admins` — Lista todos os administradores
+`/stats` — Mostra estatísticas do grupo
+`/logs` — Exibe últimas ações do bot
+`/backup` — Exporta dados do grupo
+`/restore` — Importa backup anterior
+
+### Configuração do Sistema
+`/setprice [valor] [moeda]` — Define preço da assinatura
+`/settime [dias]` — Define duração do acesso
+`/setwallet [endereço]` — Define carteira para pagamentos
+`/register_group` — Registra o grupo atual
+`/group_id` — Mostra ID do grupo atual
+
+---
 """
         else:
-            # In groups, show only user commands
-            help_text = f"""
-🤖 **Bot VIP Telegram - Comandos Disponíveis**
+            help_text += """
+*Comandos administrativos disponíveis apenas para admins.*
+"""
 
-**📋 Comandos Gerais:**
-/start - Iniciar o bot
-/pay - Iniciar pagamento da assinatura VIP
-/status - Ver status da sua assinatura
-/renew - Renovar assinatura
-/help - Mostrar esta ajuda
-/invite - Gerar link de convite
+        help_text += """
+� **Dicas:**
+• Use comandos apenas em grupos (exceto /start em privado)
+• Mencione usuários com @ para comandos que requerem alvo
+• Alguns comandos podem ter parâmetros opcionais entre []
 
-💰 **Preço:** R$ {Config.SUBSCRIPTION_PRICE}
-⏰ **Duração:** {Config.SUBSCRIPTION_DAYS} dias
-
-📍 **Nota:** Para comandos administrativos, fale comigo no privado.
+📞 **Suporte:** Use /support para falar com administradores
 """
 
         await message.reply_text(help_text, parse_mode="Markdown")
+
+    @measure_performance("user_handlers.cancel_handler")
+    async def cancel_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /cancel command - disable auto-renewal"""
+        user = update.effective_user
+        message = update.message
+        chat = update.effective_chat
+        if not user or not message or not chat:
+            return
+
+        # User commands should work in groups only
+        if chat.type == "private":
+            await message.reply_text("❌ Comandos de usuário só podem ser executados em grupos.")
+            return
+
+        # Find user in database
+        db_user = self.db.query(User).filter_by(telegram_id=str(user.id)).first()
+        if not db_user:
+            await message.reply_text("❌ Usuário não encontrado. Use /start primeiro.")
+            return
+
+        # Check if user has active subscription
+        if db_user.status_assinatura != "active":
+            await message.reply_text("❌ Você não possui uma assinatura ativa para cancelar.")
+            return
+
+        # Disable auto-renewal
+        db_user.auto_renew = False
+        self.db.commit()
+
+        await message.reply_text(
+            "✅ **Renovação automática desabilitada com sucesso!**\n\n"
+            "Sua assinatura atual permanecerá ativa até a data de expiração.\n"
+            "Para reativar a renovação automática, entre em contato com o suporte."
+        )
+
+    @measure_performance("user_handlers.support_handler")
+    async def support_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /support command - provide support contact information"""
+        user = update.effective_user
+        message = update.message
+        chat = update.effective_chat
+        if not user or not message or not chat:
+            return
+
+        # User commands should work in groups only
+        if chat.type == "private":
+            await message.reply_text("❌ Comandos de usuário só podem ser executados em grupos.")
+            return
+
+        support_text = """
+🆘 **Suporte Técnico**
+
+Para obter ajuda, entre em contato conosco:
+
+📧 **Email:** suporte@viptelegram.com
+💬 **Telegram:** @suporte_vip_bot
+📱 **WhatsApp:** +55 11 99999-9999
+
+⏰ **Horário de atendimento:**
+Segunda a Sexta: 9h às 18h
+Sábado: 9h às 12h
+
+📋 **Antes de contactar, verifique:**
+• Status da sua assinatura com /status
+• Histórico de pagamentos com /payment_history
+• Grupos disponíveis com /groups
+
+Para questões urgentes, use o Telegram @suporte_vip_bot
+"""
+        await message.reply_text(support_text, parse_mode="Markdown")
+
+    @measure_performance("user_handlers.info_handler")
+    async def info_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /info command - show VIP group/mentorship information"""
+        user = update.effective_user
+        message = update.message
+        chat = update.effective_chat
+        if not user or not message or not chat:
+            return
+
+        # User commands should work in groups only
+        if chat.type == "private":
+            await message.reply_text("❌ Comandos de usuário só podem ser executados em grupos.")
+            return
+
+        info_text = """
+ℹ️ **Sobre o Grupo VIP Telegram**
+
+🎯 **O que oferecemos:**
+• Acesso exclusivo a grupos VIP do Telegram
+• Conteúdo premium e atualizações diárias
+• Suporte prioritário 24/7
+• Comunidade ativa de profissionais
+
+💰 **Planos e Preços:**
+• **Básico:** R$ {Config.SUBSCRIPTION_PRICE:.2f} por {Config.SUBSCRIPTION_DAYS} dias
+• **Renovação automática:** Disponível (pode ser desabilitada com /cancel)
+
+📊 **Estatísticas:**
+• +1000 membros ativos
+• 15+ grupos especializados
+• Atualização diária de conteúdo
+
+🚀 **Como participar:**
+1. Use /pay para fazer o pagamento
+2. Aguarde a confirmação do pagamento
+3. Use /join para entrar nos grupos disponíveis
+
+📞 **Dúvidas?** Use /support para falar conosco
+
+🌟 **Junte-se à nossa comunidade VIP hoje mesmo!**
+"""
+        await message.reply_text(info_text, parse_mode="Markdown")
 
     async def invite_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /invite command"""
@@ -414,3 +564,99 @@ Este link permite que novos usuários se juntem ao grupo VIP.
 *Rastreamento será implementado em breve.*
 """
         await message.reply_text(invite_text, parse_mode="Markdown")
+
+    @measure_performance("user_handlers.help_handler")
+    async def help_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /help command - show available commands"""
+        user = update.effective_user
+        message = update.message
+        chat = update.effective_chat
+        if not user or not message or not chat:
+            return
+
+        # Check if user is admin
+        from src.models.admin import Admin
+        is_admin = self.db.query(Admin).filter(Admin.telegram_id == user.id).first() is not None
+
+        help_text = f"""
+🤖 **Bot VIP Telegram - Ajuda**
+
+Olá {user.first_name}! Aqui estão os comandos disponíveis:
+
+---
+
+## 👤 **Comandos de Usuário**
+
+`/start` — Inicia o bot e mostra informações básicas
+`/help` — Mostra esta mensagem de ajuda
+`/pay` — Gera QR Code ou link de pagamento para assinatura
+`/status` — Verifica o status da sua assinatura
+`/renew` — Renova sua assinatura automaticamente
+`/cancel` — Cancela a renovação automática da assinatura
+`/support` — Abre canal de suporte com administradores
+`/info` — Mostra informações sobre o grupo/mentoria
+`/invite` — Gera seu link pessoal de convite
+
+---
+
+## 👑 **Comandos Administrativos**
+"""
+
+        if is_admin:
+            help_text += """
+### Gerenciamento de Membros
+`/add @usuario` — Adiciona manualmente um usuário
+`/kick @usuario` — Remove um usuário do grupo
+`/ban @usuario` — Bane permanentemente um usuário
+`/unban @usuario` — Remove o banimento de um usuário
+`/mute @usuario [tempo]` — Silencia um usuário por tempo determinado
+`/unmute @usuario` — Remove o silêncio de um usuário
+`/warn @usuario [motivo]` — Envia um aviso ao usuário
+`/resetwarn @usuario` — Zera os avisos do usuário
+`/userinfo @usuario` — Exibe informações detalhadas do usuário
+
+### Controle de Acesso & Assinaturas
+`/check @usuario` — Verifica status do pagamento/assinatura
+`/renew @usuario` — Renova manualmente a assinatura do usuário
+`/expire @usuario` — Expira manualmente o acesso do usuário
+`/pending` — Lista usuários com pagamentos pendentes
+
+### Comunicação & Anúncios
+`/broadcast [mensagem]` — Envia mensagem para todos os membros
+`/schedule [hora] [mensagem]` — Programa mensagem automática
+`/rules` — Envia as regras do grupo
+`/welcome` — Define mensagem de boas-vindas
+`/sendto @usuario [mensagem]` — Envia mensagem privada
+
+### Configurações & Monitoramento
+`/settings` — Abre painel de configurações do bot
+`/admins` — Lista todos os administradores
+`/stats` — Mostra estatísticas do grupo
+`/logs` — Exibe últimas ações do bot
+`/backup` — Exporta dados do grupo
+`/restore` — Importa backup anterior
+
+### Configuração do Sistema
+`/setprice [valor] [moeda]` — Define preço da assinatura
+`/settime [dias]` — Define duração do acesso
+`/setwallet [endereço]` — Define carteira para pagamentos
+`/register_group` — Registra o grupo atual
+`/group_id` — Mostra ID do grupo atual
+
+---
+"""
+        else:
+            help_text += """
+*Comandos administrativos disponíveis apenas para admins.*
+"""
+
+        help_text += """
+💡 **Dicas:**
+• Use comandos apenas em grupos (exceto /start em privado)
+• Mencione usuários com @ para comandos que requerem alvo
+• Alguns comandos podem ter parâmetros opcionais entre []
+
+📞 **Suporte:** Use /support para falar com administradores
+"""
+
+        await message.reply_text(help_text, parse_mode="Markdown")

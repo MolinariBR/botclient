@@ -8,6 +8,8 @@ from src.services.pixgo_service import (
     PixGoAPIError,
     PixGoTimeoutError,
     PixGoCircuitBreakerError,
+    PixGoRateLimitError,
+    PixGoValidationError,
     CircuitBreaker,
     CircuitBreakerState
 )
@@ -85,7 +87,7 @@ class TestPixGoService:
 
         status = service.get_payment_status("pix_123")
         assert status == "completed"
-        mock_make_request.assert_called_once_with("GET", "https://api.pixgo.com/payment/pix_123/status")
+        mock_make_request.assert_called_once_with("GET", "https://pixgo.org/api/v1/payment/pix_123/status")
 
     @patch.object(PixGoService, '_make_request')
     def test_get_payment_status_failure(self, mock_make_request):
@@ -124,7 +126,7 @@ class TestPixGoService:
         # Verify payer info was included in payload
         call_args = mock_make_request.call_args
         assert call_args[0][0] == "POST"  # method
-        assert call_args[0][1] == "https://api.pixgo.com/payment/create"  # url
+        assert call_args[0][1] == "https://pixgo.org/api/v1/payment/create"  # url
         payload = call_args[1]["json"]
         assert payload["customer_name"] == "John Doe"
         assert payload["customer_email"] == "john@example.com"
@@ -245,7 +247,201 @@ class TestPixGoService:
 
         assert service.api_key == "test_key"
         assert service.timeout == 60
-        assert service.base_url == "https://api.pixgo.com"
+        assert service.base_url == "https://pixgo.org/api/v1"
         assert hasattr(service, 'circuit_breaker')
         assert service.circuit_breaker.failure_threshold == 5
         assert service.circuit_breaker.recovery_timeout == 60
+
+
+class TestPixGoServiceErrorHandling:
+    """Test enhanced error handling in PixGo service"""
+
+    def setup_method(self):
+        """Setup test fixtures"""
+        self.service = PixGoService("test_key")
+        self.service.api_key = "test_key"
+        self.service.base_url = "https://api.pixgo.com"
+
+    @patch.object(PixGoService, '_make_request')
+    def test_create_payment_internal_success(self, mock_make_request):
+        """Test successful payment creation in internal method"""
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "success": True,
+            "data": {
+                "payment_id": "pix_123",
+                "qr_code": "qr_code_data",
+                "status": "pending"
+            }
+        }
+        mock_make_request.return_value = mock_response
+
+        result = self.service._create_payment_internal(100.0, "Test payment")
+
+        assert result is not None
+        assert result["payment_id"] == "pix_123"
+        assert result["qr_code"] == "qr_code_data"
+
+    @patch.object(PixGoService, '_make_request')
+    def test_create_payment_internal_validation_error(self, mock_make_request):
+        """Test validation error handling in internal method"""
+        mock_make_request.side_effect = PixGoValidationError("Invalid amount")
+
+        with pytest.raises(PixGoValidationError):
+            self.service._create_payment_internal(100.0, "Test payment")
+
+    @patch.object(PixGoService, '_make_request')
+    def test_create_payment_internal_rate_limit_error(self, mock_make_request):
+        """Test rate limit error handling in internal method"""
+        mock_make_request.side_effect = PixGoRateLimitError("Rate limit exceeded", retry_after=60)
+
+        with pytest.raises(PixGoRateLimitError) as exc_info:
+            self.service._create_payment_internal(100.0, "Test payment")
+
+        assert exc_info.value.retry_after == 60
+
+    @patch.object(PixGoService, '_make_request')
+    def test_create_payment_internal_timeout_error(self, mock_make_request):
+        """Test timeout error handling in internal method"""
+        mock_make_request.side_effect = PixGoTimeoutError("Connection timeout")
+
+        with pytest.raises(PixGoTimeoutError):
+            self.service._create_payment_internal(100.0, "Test payment")
+
+    @patch.object(PixGoService, '_make_request')
+    def test_create_payment_internal_server_error(self, mock_make_request):
+        """Test server error handling in internal method"""
+        mock_response = Mock()
+        mock_response.status_code = 500
+        mock_response.json.return_value = {"error": "Internal server error"}
+        mock_make_request.return_value = mock_response
+
+        with pytest.raises(PixGoAPIError):
+            self.service._create_payment_internal(100.0, "Test payment")
+
+    def test_create_payment_invalid_amount(self):
+        """Test invalid amount validation"""
+        result = self.service.create_payment(-100.0, "Test payment")
+        assert result is None
+
+    def test_create_payment_empty_description(self):
+        """Test empty description validation"""
+        result = self.service.create_payment(100.0, "")
+        assert result is None
+
+    @patch.object(PixGoService, '_create_payment_internal')
+    def test_create_payment_circuit_breaker_fallback(self, mock_internal):
+        """Test circuit breaker fallback to USDT"""
+        # Simulate circuit breaker open
+        mock_internal.side_effect = PixGoCircuitBreakerError("Circuit breaker open")
+
+        mock_usdt_service = Mock()
+        mock_usdt_service.create_payment.return_value = {
+            "payment_id": "usdt_123",
+            "qr_code": "usdt_qr_code"
+        }
+
+        result = self.service.create_payment(100.0, "Test payment", fallback_service=mock_usdt_service)
+
+        assert result is not None
+        assert result["fallback"] is True
+        assert result["payment_method"] == "USDT"
+        assert result["usdt_address"] is not None
+
+    @patch.object(PixGoService, '_create_payment_internal')
+    def test_create_payment_rate_limit_fallback(self, mock_internal):
+        """Test rate limit fallback to USDT"""
+        mock_internal.side_effect = PixGoRateLimitError("Rate limited", retry_after=60)
+
+        mock_usdt_service = Mock()
+        mock_usdt_service.create_payment.return_value = {
+            "payment_id": "usdt_123",
+            "qr_code": "usdt_qr_code"
+        }
+
+        result = self.service.create_payment(100.0, "Test payment", fallback_service=mock_usdt_service)
+
+        assert result is not None
+        assert result["fallback"] is True
+
+    @patch.object(PixGoService, '_create_payment_internal')
+    def test_create_payment_timeout_fallback(self, mock_internal):
+        """Test timeout fallback to USDT"""
+        mock_internal.side_effect = PixGoTimeoutError("Timeout")
+
+        mock_usdt_service = Mock()
+        mock_usdt_service.create_payment.return_value = {
+            "payment_id": "usdt_123",
+            "qr_code": "usdt_qr_code"
+        }
+
+        result = self.service.create_payment(100.0, "Test payment", fallback_service=mock_usdt_service)
+
+        assert result is not None
+        assert result["fallback"] is True
+
+    @patch.object(PixGoService, '_create_payment_internal')
+    def test_create_payment_api_error_fallback(self, mock_internal):
+        """Test API error fallback to USDT"""
+        mock_usdt_service = Mock()
+        mock_usdt_service.create_payment.return_value = {
+            "payment_id": "usdt_123",
+            "qr_code": "usdt_qr_code"
+        }
+
+        mock_internal.side_effect = PixGoAPIError("API Error")
+
+        result = self.service.create_payment(100.0, "Test payment", fallback_service=mock_usdt_service)
+
+        assert result is not None
+        assert result["fallback"] is True
+
+    @patch.object(PixGoService, '_create_payment_internal')
+    def test_create_payment_validation_error_no_fallback(self, mock_internal):
+        """Test validation error doesn't trigger fallback"""
+        mock_internal.side_effect = PixGoValidationError("Validation error")
+
+        result = self.service.create_payment(100.0, "Test payment", fallback_service=Mock())
+
+        assert result is None
+
+    @patch.object(PixGoService, '_create_payment_internal')
+    def test_create_payment_unexpected_error_no_fallback(self, mock_internal):
+        """Test unexpected error doesn't trigger fallback"""
+        mock_internal.side_effect = Exception("Unexpected error")
+
+        result = self.service.create_payment(100.0, "Test payment", fallback_service=Mock())
+
+        assert result is None
+
+    def test_fallback_to_usdt_success(self):
+        """Test successful USDT fallback"""
+        mock_usdt_service = Mock()
+        mock_usdt_service.get_payment_address.return_value = "0x1234567890abcdef"
+        mock_usdt_service.get_payment_instructions.return_value = "Pay 10.0 USDT to 0x1234567890abcdef"
+
+        result = self.service._fallback_to_usdt(100.0, "Test payment", mock_usdt_service)
+
+        assert result is not None
+        assert result["payment_method"] == "USDT"
+        assert result["amount"] == 100.0
+        assert result["usdt_address"] == "0x1234567890abcdef"
+        assert result["fallback"] is True
+
+    def test_fallback_to_usdt_failure(self):
+        """Test failed USDT fallback"""
+        mock_usdt_service = Mock()
+        mock_usdt_service.get_payment_address.side_effect = Exception("USDT service unavailable")
+
+        result = self.service._fallback_to_usdt(100.0, "Test payment", mock_usdt_service)
+
+        assert result is None
+
+    def test_fallback_to_usdt_exception(self):
+        """Test USDT fallback with exception"""
+        mock_usdt_service = Mock()
+        mock_usdt_service.get_payment_address.side_effect = Exception("USDT error")
+
+        result = self.service._fallback_to_usdt(100.0, "Test payment", mock_usdt_service)
+
+        assert result is None

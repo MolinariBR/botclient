@@ -1,6 +1,7 @@
 import datetime
 
 from sqlalchemy import Column, DateTime, Integer, String
+from sqlalchemy.orm import relationship
 
 from .base import Base
 
@@ -18,3 +19,8 @@ class Admin(Base):
     updated_at = Column(
         DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow
     )
+
+    # Relationships
+    warnings = relationship("Warning", back_populates="admin")
+    system_configs = relationship("SystemConfig", back_populates="admin")
+    scheduled_messages = relationship("ScheduledMessage", back_populates="admin")

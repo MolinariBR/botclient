@@ -29,3 +29,4 @@ class User(Base):
     # Relationships
     payments = relationship("Payment", back_populates="user")
     group_memberships = relationship("GroupMembership", back_populates="user")
+    warnings = relationship("Warning", back_populates="user")

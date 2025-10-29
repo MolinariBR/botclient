@@ -38,9 +38,14 @@ class TestKickIntegration:
         return service
 
     @pytest.fixture
-    def admin_handlers(self, db_session, telegram_service):
-        """Admin handlers with real database"""
-        return AdminHandlers(db_session, telegram_service)
+    def mock_logging_service(self):
+        """Mock logging service"""
+        return Mock()
+
+    @pytest.fixture
+    def admin_handlers(self, db_session, telegram_service, mock_logging_service):
+        """Admin handlers instance with real database"""
+        return AdminHandlers(db_session, telegram_service, mock_logging_service)
 
     def create_test_data(self, db_session):
         """Create test data in database"""

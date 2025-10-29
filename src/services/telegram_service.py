@@ -62,3 +62,17 @@ class TelegramService:
         except TelegramError as e:
             logger.error(f"Failed to create invite link for {chat_id}: {e}")
             return None
+
+    async def send_document(self, chat_id: int, document, filename: str = None, caption: str = None) -> bool:
+        """Send a document to a chat"""
+        try:
+            await self.bot.send_document(
+                chat_id=chat_id,
+                document=document,
+                filename=filename,
+                caption=caption
+            )
+            return True
+        except TelegramError as e:
+            logger.error(f"Failed to send document to {chat_id}: {e}")
+            return False
