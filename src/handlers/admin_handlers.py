@@ -56,11 +56,29 @@ class AdminHandlers:
         if not user or not message or not chat:
             return
 
-        # Check if user is admin
+        # Check if user is admin or if this is the first admin setup
         admin = self.db.query(Admin).filter_by(telegram_id=str(user.id)).first()
-        if not admin:
+        total_admins = self.db.query(Admin).count()
+
+        # Allow bootstrap: if no admins exist, anyone can become the first admin
+        if not admin and total_admins > 0:
             await message.reply_text("Acesso negado. Você não é um administrador.")
             return
+
+        # If this is the first admin setup, inform the user
+        if total_admins == 0:
+            await message.reply_text("🎉 Primeiro admin sendo configurado! Você será registrado como administrador.")
+            # Create the admin user
+            new_admin = Admin(
+                telegram_id=str(user.id),
+                username=user.username,
+                first_name=user.first_name,
+                last_name=user.last_name,
+                permissions="super"
+            )
+            self.db.add(new_admin)
+            self.db.commit()
+            admin = new_admin
 
         # FR-004: Restrict admin commands to private chat only
         if chat.type != "private":
@@ -68,17 +86,46 @@ class AdminHandlers:
             return
 
         # Parse username and group_id from args
-        if not context.args or len(context.args) < 2:
-            await message.reply_text("Uso: /add @username <group_telegram_id>")
-            return
-
-        username = context.args[0].lstrip("@")
-        group_telegram_id = context.args[1]
+        if total_admins == 0:
+            # First admin setup - allow self-registration
+            if not context.args or len(context.args) < 1:
+                username = user.username
+                group_telegram_id = None  # Will be set later or not required for first admin
+            else:
+                username = context.args[0].lstrip("@")
+                group_telegram_id = context.args[1] if len(context.args) > 1 else None
+        else:
+            # Normal admin operation
+            if not context.args or len(context.args) < 2:
+                await message.reply_text("Uso: /add @username <group_telegram_id>")
+                return
+            username = context.args[0].lstrip("@")
+            group_telegram_id = context.args[1]
 
         # Find user by username
         db_user = self.db.query(User).filter_by(username=username).first()
         if not db_user:
-            await message.reply_text(f"Usuário @{username} não encontrado. Certifique-se de que o usuário iniciou uma conversa com o bot.")
+            # Create user if doesn't exist
+            db_user = User(
+                telegram_id=str(user.id),
+                username=username,
+                first_name=user.first_name,
+                last_name=user.last_name
+            )
+            self.db.add(db_user)
+            self.db.commit()
+
+        # Handle first admin setup differently
+        if total_admins == 0:
+            await message.reply_text(f"✅ Admin @{username} registrado com sucesso!\n\n"
+                                   f"🎯 Você agora é um administrador super.\n"
+                                   f"📝 Use /help para ver todos os comandos disponíveis.\n"
+                                   f"📱 Para adicionar usuários a grupos, use: /add @usuario <group_id>")
+            return
+
+        # Normal admin operation - require group_telegram_id
+        if not group_telegram_id:
+            await message.reply_text("Uso: /add @username <group_telegram_id>")
             return
 
         # Find or create group
