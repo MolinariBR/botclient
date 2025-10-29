@@ -8,6 +8,14 @@ Pipfile.lock
 ffmpeg
 *.zip
 
+# Projeto - Arquivos locais (não enviar para GitHub)
+tests/
+specs/
+docs/
+.vscode/
+specify/
+github/
+
 # Database local (opcional - manter se quiser versionar dados de teste)
 # *.db
 # *.sqlite
