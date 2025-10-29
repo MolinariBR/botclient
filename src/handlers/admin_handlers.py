@@ -173,6 +173,67 @@ class AdminHandlers:
         else:
             await message.reply_text(f"Usuário @{username} adicionado ao banco de dados, mas falha ao notificar.")
 
+    async def addadmin_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /addadmin command - add new administrators"""
+        user = update.effective_user
+        message = update.message
+        chat = update.effective_chat
+
+        if not user or not message or not chat:
+            return
+
+        # Check if user is admin (no bootstrap for addadmin - only existing admins can add new admins)
+        admin = self.db.query(Admin).filter_by(telegram_id=str(user.id)).first()
+        if not admin:
+            await message.reply_text("Acesso negado. Você não é um administrador.")
+            return
+
+        # FR-004: Restrict admin commands to private chat only
+        if chat.type != "private":
+            await message.reply_text("❌ Comandos administrativos só podem ser executados no chat privado com o bot.")
+            return
+
+        # Parse username from args
+        if not context.args or len(context.args) < 1:
+            await message.reply_text("Uso: /addadmin @username")
+            return
+
+        username = context.args[0].lstrip("@")
+
+        # Find user by username
+        db_user = self.db.query(User).filter_by(username=username).first()
+        if not db_user:
+            # Create user if doesn't exist
+            db_user = User(
+                telegram_id=str(user.id),  # This will be updated when the admin actually uses the bot
+                username=username,
+                first_name=username,  # Placeholder
+                last_name=None
+            )
+            self.db.add(db_user)
+            self.db.commit()
+
+        # Check if user is already an admin
+        existing_admin = self.db.query(Admin).filter_by(telegram_id=db_user.telegram_id).first()
+        if existing_admin:
+            await message.reply_text(f"Usuário @{username} já é um administrador.")
+            return
+
+        # Create new admin
+        new_admin = Admin(
+            telegram_id=db_user.telegram_id,
+            username=username,
+            first_name=db_user.first_name,
+            last_name=db_user.last_name,
+            permissions="basic"  # Default permissions for new admins
+        )
+        self.db.add(new_admin)
+        self.db.commit()
+
+        await message.reply_text(f"✅ Administrador @{username} adicionado com sucesso!\n\n"
+                               f"🎯 Permissões: {new_admin.permissions}\n"
+                               f"📝 Use /admins para ver todos os administradores.")
+
     async def register_group_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /register_group command"""
         user = update.effective_user

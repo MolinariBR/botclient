@@ -92,6 +92,7 @@ def main():
 
     # Admin commands
     application.add_handler(CommandHandler("add", admin_handlers.add_handler))
+    application.add_handler(CommandHandler("addadmin", admin_handlers.addadmin_handler))
     application.add_handler(CommandHandler("register_group", admin_handlers.register_group_handler))
     application.add_handler(CommandHandler("group_id", admin_handlers.group_id_handler))
     application.add_handler(CommandHandler("kick", admin_handlers.kick_handler))

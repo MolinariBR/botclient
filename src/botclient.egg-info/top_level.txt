@@ -1,5 +1,6 @@
 __init__
 handlers
+logs
 main
 models
 services

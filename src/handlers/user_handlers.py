@@ -402,8 +402,6 @@ Olá {user.first_name}! Aqui estão os comandos disponíveis:
 📞 **Suporte:** Use /support para falar com administradores
 """
 
-        await message.reply_text(help_text, parse_mode="Markdown")
-
     @measure_performance("user_handlers.cancel_handler")
     async def cancel_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /cancel command - disable auto-renewal"""
@@ -578,10 +576,13 @@ Este link permite que novos usuários se juntem ao grupo VIP.
         from src.models.admin import Admin
         is_admin = self.db.query(Admin).filter(Admin.telegram_id == user.id).first() is not None
 
-        help_text = f"""
-🤖 **Bot VIP Telegram - Ajuda**
+        # Determine help content based on chat type
+        if chat.type == "private":
+            # In private chat with bot: show ALL commands (admin interface)
+            help_text = f"""
+🤖 **Bot VIP Telegram - Painel Administrativo**
 
-Olá {user.first_name}! Aqui estão os comandos disponíveis:
+Olá {user.first_name}! Como administrador, você tem acesso a todos os comandos:
 
 ---
 
@@ -601,11 +602,11 @@ Olá {user.first_name}! Aqui estão os comandos disponíveis:
 
 ## 👑 **Comandos Administrativos**
 """
-
-        if is_admin:
+            # Always show admin commands in private chat
             help_text += """
 ### Gerenciamento de Membros
 `/add @usuario` — Adiciona manualmente um usuário
+`/addadmin @usuario` — Adiciona um novo administrador
 `/kick @usuario` — Remove um usuário do grupo
 `/ban @usuario` — Bane permanentemente um usuário
 `/unban @usuario` — Remove o banimento de um usuário
@@ -646,13 +647,49 @@ Olá {user.first_name}! Aqui estão os comandos disponíveis:
 ---
 """
         else:
-            help_text += """
-*Comandos administrativos disponíveis apenas para admins.*
+            # In group: show only user commands
+            help_text = f"""
+🤖 **Bot VIP Telegram - Ajuda**
+
+Olá {user.first_name}! Aqui estão os comandos disponíveis para usuários:
+
+---
+
+## 👤 **Comandos de Usuário**
+
+`/start` — Inicia o bot e mostra informações básicas
+`/help` — Mostra esta mensagem de ajuda
+`/pay` — Gera QR Code ou link de pagamento para assinatura
+`/status` — Verifica o status da sua assinatura
+`/renew` — Renova sua assinatura automaticamente
+`/cancel` — Cancela a renovação automática da assinatura
+`/support` — Abre canal de suporte com administradores
+`/info` — Mostra informações sobre o grupo/mentoria
+`/invite` — Gera seu link pessoal de convite
+
+---
+
+*Para comandos administrativos, use o chat privado com o bot.*
 """
 
-        help_text += """
+        if chat.type == "private":
+            # Admin tips in private chat
+            help_text += """
+💡 **Dicas Administrativas:**
+• Use este chat privado para todos os comandos administrativos
+• Mencione usuários com @ para comandos que requerem alvo
+• Alguns comandos podem ter parâmetros opcionais entre []
+• Use /register_group em um grupo para registrá-lo
+• Use /group_id para obter o ID de qualquer grupo
+
+📞 **Suporte:** Você é o administrador - gerencie tudo aqui!
+"""
+        else:
+            # User tips in group
+            help_text += """
 💡 **Dicas:**
-• Use comandos apenas em grupos (exceto /start em privado)
+• Use comandos apenas em grupos
+• Para comandos administrativos, fale comigo em privado
 • Mencione usuários com @ para comandos que requerem alvo
 • Alguns comandos podem ter parâmetros opcionais entre []
 
