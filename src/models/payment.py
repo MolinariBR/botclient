@@ -17,6 +17,7 @@ class Payment(Base):
     status = Column(String, default="pending")  # pending, completed, failed, expired
     payment_method = Column(String, default="pix")  # pix, usdt
     qr_code = Column(String)
+    completed_at = Column(DateTime)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(
         DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow

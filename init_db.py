@@ -15,6 +15,9 @@ from models.user import User
 from models.payment import Payment
 from models.group import Group
 from models.admin import Admin
+from models.warning import Warning
+from models.system_config import SystemConfig
+from models.scheduled_message import ScheduledMessage
 from utils.config import Config
 
 def init_db():

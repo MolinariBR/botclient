@@ -19,6 +19,8 @@ class User(Base):
     is_banned = Column(Boolean, default=False)
     is_muted = Column(Boolean, default=False)
     mute_until = Column(DateTime)
+    warn_count = Column(Integer, default=0)
+    auto_renew = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(
         DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow
