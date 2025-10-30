@@ -7,10 +7,32 @@ from dotenv import load_dotenv
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-load_dotenv()
+import os
+import logging
 
+from dotenv import load_dotenv
+
+# Setup basic logging for config loading
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Load environment variables from multiple sources
 logger.info("Loading configuration from environment variables...")
+
+# Try loading from .env first
+env_loaded = load_dotenv()
+if env_loaded:
+    logger.info("Loaded configuration from .env file")
+else:
+    logger.info("No .env file found, trying .env.deploy...")
+    # Try loading from .env.deploy
+    env_deploy_loaded = load_dotenv('.env.deploy')
+    if env_deploy_loaded:
+        logger.info("Loaded configuration from .env.deploy file")
+    else:
+        logger.warning("No .env or .env.deploy file found")
+
+logger.info("Environment variables loaded, validating configuration...")
 
 
 class Config:

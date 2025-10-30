@@ -12,25 +12,43 @@ Configuration errors:
 
 Isso significa que as variáveis de ambiente não estão configuradas no Square Cloud.
 
-## ✅ Solução Rápida
+## ✅ Solução DEFINITIVA - Configurar no Painel Square Cloud
 
-### Passo 1: Configurar Variáveis no Painel Square Cloud
+### ⚠️ IMPORTANTE: As variáveis DEVEM ser configuradas no PAINEL WEB
 
-1. **Acesse o painel da Square Cloud**
-2. **Vá para sua aplicação**
-3. **Clique em "Environment" ou "Variáveis de Ambiente"**
-4. **Adicione as seguintes variáveis:**
+**O arquivo `squarecloud.app` pode não funcionar corretamente. Configure manualmente no painel:**
 
-```bash
-TELEGRAM_TOKEN=7729659551:AAEFWjED5bU4nCqgwhYpQa4UwvAK99WZ5vA
-PIXGO_API_KEY=pk_7e5617a42e9b704d5e320629da68e0097edb718510cf01b3abb6b11bd33d92d9
-PIXGO_BASE_URL=https://pixgo.org/api/v1
-USDT_WALLET_ADDRESS=0x87C3373E83CDe3640F7b636033D2591ac05b4793
-DATABASE_URL=sqlite:///botclient.db
-SUBSCRIPTION_PRICE=10.0
-SUBSCRIPTION_DAYS=30
-LOG_LEVEL=INFO
-LOG_FILE=logs/bot.log
+### Passo 1: Acesse o Painel Square Cloud
+1. Entre em [squarecloud.app](https://squarecloud.app)
+2. Vá para sua aplicação
+3. Clique em **"Environment"** ou **"Variáveis de Ambiente"**
+
+### Passo 2: Adicione Cada Variável Individualmente
+
+**Clique em "Add Variable" e adicione uma por vez:**
+
+| Variable Name | Value |
+|---------------|--------|
+| `TELEGRAM_TOKEN` | `7729659551:AAEFWjED5bU4nCqgwhYpQa4UwvAK99WZ5vA` |
+| `PIXGO_API_KEY` | `pk_7e5617a42e9b704d5e320629da68e0097edb718510cf01b3abb6b11bd33d92d9` |
+| `PIXGO_BASE_URL` | `https://pixgo.org/api/v1` |
+| `USDT_WALLET_ADDRESS` | `0x87C3373E83CDe3640F7b636033D2591ac05b4793` |
+| `DATABASE_URL` | `sqlite:///botclient.db` |
+| `SUBSCRIPTION_PRICE` | `10.0` |
+| `SUBSCRIPTION_DAYS` | `30` |
+| `LOG_LEVEL` | `INFO` |
+| `LOG_FILE` | `logs/bot.log` |
+
+### Passo 3: Salve e Reinicie
+- Clique em **"Save"** para cada variável
+- Depois de adicionar todas, **reinicie a aplicação**
+
+### 📱 Verificação
+Após reiniciar, você deve ver nos logs:
+```
+INFO:utils.config:TELEGRAM_TOKEN configured: Yes
+INFO:utils.config:PIXGO_API_KEY configured: Yes
+INFO:utils.config:USDT_WALLET_ADDRESS configured: Yes
 ```
 
 ### Passo 2: Fazer Redeploy
