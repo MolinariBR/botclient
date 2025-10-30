@@ -134,40 +134,49 @@ Isso significa que o bot está tendo problemas de conectividade com a API do Tel
 3. **Considere upgrade** do plano Square Cloud se necessário
 4. **Teste localmente** - Verifique se o token do Telegram é válido
 
-## 🔧 Melhorias Implementadas
+## � Problemas Identificados nos Logs Atuais
 
-### Rede e Conectividade
-- **Retry automático** com backoff exponencial (5 tentativas)
-- **Timeouts otimizados** para Square Cloud
-- **Diagnóstico automático** na inicialização
-- **Logs detalhados** de conectividade
+### DATABASE_URL vazio
+**Sintoma**: `DATABASE_URL:` (vazio nos logs)
+**Causa**: Variável não configurada no painel Square Cloud
+**Solução**: Adicionar `DATABASE_URL=sqlite:///botclient.db` no painel
 
-### Arquivos de Configuração
-- `diagnose.sh` - Script de diagnóstico de conectividade
-- `network-config.yaml` - Configurações de rede
-- Porta 8080 configurada no `squarecloud.app`
+### Erro 404 na API do Telegram
+**Sintoma**: `❌ Erro de conectividade (HTTP 404)`
+**Causa**: Token do Telegram inválido ou incorreto
+**Solução**: Verificar se o token está correto no @BotFather
 
-### Verificação de Funcionamento
-Execute `./diagnose.sh` para verificar:
-- ✅ Conectividade com Telegram API
-- ✅ Acesso à API PixGo
-- ✅ Criação do banco de dados SQLite
+### Erro na API PixGo
+**Sintoma**: `❌ Erro na API PixGo (HTTP 000)`
+**Causa**: PIXGO_BASE_URL não definida ou problemas de conectividade
+**Solução**: Verificar se PIXGO_BASE_URL está configurada
+
+## 🔧 Scripts de Diagnóstico Criados
+
+- `check_env.sh` - Verifica se todas as variáveis estão definidas
+- `test_token.sh` - Testa especificamente o token do Telegram
+- `diagnose.sh` - Diagnóstico completo de conectividade
 
 ### 📱 Verificação
 Após deploy, você deve ver nos logs:
 ```
+� Verificando variáveis de ambiente...
+=== VERIFICAÇÃO DE VARIÁVEIS ===
+TELEGRAM_TOKEN: 7729659551:AAEF...
+PIXGO_API_KEY: pk_7e5617a...
+DATABASE_URL: sqlite:///botclient.db
+...
+
+🤖 Testando token do Telegram...
+=== TESTE DO TOKEN TELEGRAM ===
+Token definido: 7729659551:AAEF...
+✅ Token válido!
+Nome do bot: Bot VIP
+Username: @botvip
+
 🔍 Executando diagnóstico de conectividade...
-=== DIAGNÓSTICO DO BOT TELEGRAM ===
-1. Verificando variáveis de ambiente:
-   TELEGRAM_TOKEN: 7729659551:AAEF...
-   PIXGO_API_KEY: pk_7e5617a...
-   DATABASE_URL: sqlite:///botclient.db
-
-2. Testando conectividade com Telegram API:
-   ✅ Conectividade OK (HTTP 200)
-
+✅ Conectividade OK (HTTP 200)
 🤖 Executando o bot...
-✅ Bot configuration loaded successfully
 ✅ Bot started successfully!
 ```
 

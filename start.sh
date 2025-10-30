@@ -36,6 +36,14 @@ fi
 
 echo "✅ Arquivo main.py encontrado"
 
+# Verificar variáveis de ambiente
+echo "🔧 Verificando variáveis de ambiente..."
+./check_env.sh
+
+# Testar token do Telegram
+echo "🤖 Testando token do Telegram..."
+./test_token.sh
+
 # Executar diagnóstico de conectividade
 echo "🔍 Executando diagnóstico de conectividade..."
 ./diagnose.sh
