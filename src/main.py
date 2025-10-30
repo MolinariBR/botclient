@@ -222,9 +222,14 @@ def main():
                 await application.initialize()
 
                 logging.info("Starting polling with optimized settings...")
-                # Check if webhook URL is configured
+                # Check if webhook URL is configured - only use in production
                 webhook_url = os.getenv('WEBHOOK_URL')
-                if webhook_url:
+                port = os.getenv('PORT')
+
+                # Force polling for development/testing, webhook only for production
+                use_webhook = bool(webhook_url and port and os.getenv('ENVIRONMENT') == 'production')
+
+                if use_webhook:
                     try:
                         logging.info(f"Setting webhook: {webhook_url}")
                         await application.bot.set_webhook(
@@ -232,22 +237,44 @@ def main():
                             allowed_updates=["message", "callback_query", "chat_member"]
                         )
                         logging.info("✅ Webhook configured successfully")
+
+                        # Start webhook mode
+                        from telegram.ext import WebhookServer
+                        logging.info(f"Starting webhook server on port {port}")
+                        await application.start_webhook(
+                            listen="0.0.0.0",
+                            port=int(port),
+                            url_path="",
+                            webhook_url=webhook_url
+                        )
+                        logging.info("✅ Webhook server started successfully!")
+
                     except Exception as webhook_error:
-                        logging.warning(f"Webhook setup failed: {webhook_error}, continuing with polling")
+                        logging.warning(f"Webhook setup failed: {webhook_error}, falling back to polling")
+                        use_webhook = False
 
-                # Start polling with error handling and optimized settings for Square Cloud
-                try:
-                    async with application:
-                        await application.start()
-                        logging.info("✅ Bot started successfully!")
+                if not use_webhook:
+                    logging.info("Using polling mode...")
+                    # Delete any existing webhook
+                    try:
+                        await application.bot.delete_webhook()
+                        logging.info("✅ Webhook deleted (using polling)")
+                    except Exception as e:
+                        logging.debug(f"Could not delete webhook: {e}")
 
-                        # Keep the bot running with periodic health checks
-                        while True:
-                            await asyncio.sleep(1)
+                    # Start polling with error handling and optimized settings for Square Cloud
+                    try:
+                        async with application:
+                            await application.start()
+                            logging.info("✅ Bot started successfully with polling!")
 
-                except Exception as polling_error:
-                    logging.error(f"Polling error: {polling_error}")
-                    raise
+                            # Keep the bot running with periodic health checks
+                            while True:
+                                await asyncio.sleep(1)
+
+                    except Exception as polling_error:
+                        logging.error(f"Polling error: {polling_error}")
+                        raise
 
             except Exception as e:
                 logging.error(f"Bot error on attempt {attempt + 1}: {e}")

@@ -45,6 +45,7 @@ ENV_VARS=
   SUBSCRIPTION_DAYS="30"
   LOG_LEVEL="INFO"
   LOG_FILE="logs/bot.log"
+  ENVIRONMENT="production"
 
 
   
