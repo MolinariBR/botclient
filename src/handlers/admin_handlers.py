@@ -46,6 +46,12 @@ class AdminHandlers:
         self.stats_handler = LoggingService.create_admin_action_decorator(logging_service, "stats")(self.stats_handler)
         self.logs_handler = LoggingService.create_admin_action_decorator(logging_service, "logs")(self.logs_handler)
         self.admins_handler = LoggingService.create_admin_action_decorator(logging_service, "admins")(self.admins_handler)
+        self.settings_handler = LoggingService.create_admin_action_decorator(logging_service, "settings")(self.settings_handler)
+        self.rules_handler = LoggingService.create_admin_action_decorator(logging_service, "rules")(self.rules_handler)
+        self.welcome_handler = LoggingService.create_admin_action_decorator(logging_service, "welcome")(self.welcome_handler)
+        self.schedule_handler = LoggingService.create_admin_action_decorator(logging_service, "schedule")(self.schedule_handler)
+        self.backup_handler = LoggingService.create_admin_action_decorator(logging_service, "backup")(self.backup_handler)
+        self.restore_handler = LoggingService.create_admin_action_decorator(logging_service, "restore")(self.restore_handler)
 
     async def add_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /add command"""
