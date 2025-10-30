@@ -1,9 +1,16 @@
 import os
+import logging
 
 from dotenv import load_dotenv
 
+# Setup basic logging for config loading
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Load environment variables
 load_dotenv()
+
+logger.info("Loading configuration from environment variables...")
 
 
 class Config:
@@ -32,6 +39,15 @@ class Config:
     def validate(cls) -> list[str]:
         """Validate required configuration"""
         errors = []
+
+        # Log configuration status (without exposing sensitive data)
+        logger.info(f"TELEGRAM_TOKEN configured: {'Yes' if cls.TELEGRAM_TOKEN else 'No'}")
+        logger.info(f"PIXGO_API_KEY configured: {'Yes' if cls.PIXGO_API_KEY else 'No'}")
+        logger.info(f"USDT_WALLET_ADDRESS configured: {'Yes' if cls.USDT_WALLET_ADDRESS else 'No'}")
+        logger.info(f"DATABASE_URL: {cls.DATABASE_URL}")
+        logger.info(f"SUBSCRIPTION_PRICE: {cls.SUBSCRIPTION_PRICE}")
+        logger.info(f"SUBSCRIPTION_DAYS: {cls.SUBSCRIPTION_DAYS}")
+
         if not cls.TELEGRAM_TOKEN:
             errors.append("TELEGRAM_TOKEN is required")
         if not cls.PIXGO_API_KEY:

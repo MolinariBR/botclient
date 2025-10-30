@@ -14,7 +14,7 @@ MAIN=src/main.py
 START=./start.sh
 
 # Versão da aplicação
-VERSION=1.0.0
+VERSION=latest
 
 # Ambiente de execução (python)
 ENVIRONMENT=python
@@ -29,13 +29,13 @@ MEMORY=512
 # SUBDOMAIN=meu-bot
 
 # Variáveis de ambiente (podem ser configuradas no painel também)
-# ENV_VARS=
-# TELEGRAM_TOKEN=seu_token_aqui
-# PIXGO_API_KEY=sua_api_key_aqui
-# PIXGO_BASE_URL=https://pixgo.org/api/v1
-# USDT_WALLET_ADDRESS=seu_endereco_usdt
-# DATABASE_URL=sqlite:///botclient.db
-# SUBSCRIPTION_PRICE=50.0
-# SUBSCRIPTION_DAYS=30
-# LOG_LEVEL=INFO
-# LOG_FILE=logs/bot.log
+ENV_VARS=
+TELEGRAM_TOKEN=7729659551:AAEFWjED5bU4nCqgwhYpQa4UwvAK99WZ5vA
+PIXGO_API_KEY=pk_7e5617a42e9b704d5e320629da68e0097edb718510cf01b3abb6b11bd33d92d9
+PIXGO_BASE_URL=https://pixgo.org/api/v1
+USDT_WALLET_ADDRESS=0x87C3373E83CDe3640F7b636033D2591ac05b4793
+DATABASE_URL=sqlite:///botclient.db
+SUBSCRIPTION_PRICE=10.0
+SUBSCRIPTION_DAYS=30
+LOG_LEVEL=INFO
+LOG_FILE=logs/bot.log
