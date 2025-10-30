@@ -42,100 +42,78 @@ def start_performance_monitoring():
 
 
 def main():
-    # Setup logging
-    setup_logging(Config.LOG_LEVEL, Config.LOG_FILE)
+    try:
+        logging.info("🚀 Starting bot main function...")
 
-    # Start performance monitoring
-    start_performance_monitoring()
+        # Setup logging
+        setup_logging(Config.LOG_LEVEL, Config.LOG_FILE)
+        logging.info("✅ Logging setup complete")
 
-    # Validate configuration
-    errors = Config.validate()
-    if errors:
-        logging.error("Configuration errors:")
-        for error in errors:
-            logging.error(f"  - {error}")
-        return
+        # Start performance monitoring
+        start_performance_monitoring()
+        logging.info("✅ Performance monitoring started")
 
-    # Database setup
-    engine = create_engine(Config.DATABASE_URL)
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        # Validate configuration
+        errors = Config.validate()
+        if errors:
+            logging.error("❌ Configuration errors:")
+            for error in errors:
+                logging.error(f"  - {error}")
+            logging.error("❌ Bot cannot start due to configuration errors")
+            return
 
-    # Database session
-    db = SessionLocal()
+        logging.info("✅ Configuration validation passed")
 
-    # Services
-    pixgo_service = PixGoService(Config.PIXGO_API_KEY, Config.PIXGO_BASE_URL)
-    usdt_service = USDTService(Config.USDT_WALLET_ADDRESS)
-    telegram_service = TelegramService(Config.TELEGRAM_TOKEN)
-    mute_service = MuteService(db)
-    logging_service = LoggingService()
+        # Database setup
+        logging.info("🔧 Setting up database...")
+        engine = create_engine(Config.DATABASE_URL)
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        logging.info("✅ Database setup complete")
 
-    # Handlers
-    user_handlers = UserHandlers(db, pixgo_service, usdt_service)
-    admin_handlers = AdminHandlers(db, telegram_service, logging_service)
+        # Database session
+        db = SessionLocal()
+        logging.info("✅ Database session created")
 
-    # Telegram application with basic configuration
-    application = Application.builder().token(Config.TELEGRAM_TOKEN).build()
+        # Services
+        logging.info("🔧 Initializing services...")
+        pixgo_service = PixGoService(Config.PIXGO_API_KEY, Config.PIXGO_BASE_URL)
+        usdt_service = USDTService(Config.USDT_WALLET_ADDRESS)
+        telegram_service = TelegramService(Config.TELEGRAM_TOKEN)
+        mute_service = MuteService(db)
+        logging_service = LoggingService()
+        logging.info("✅ Services initialized")
 
-    # Log network diagnostic info
-    logging.info("Bot configuration:")
-    logging.info(f"  - Telegram token configured: {'Yes' if Config.TELEGRAM_TOKEN else 'No'}")
-    logging.info(f"  - Database URL: {Config.DATABASE_URL}")
-    logging.info("Starting bot with network error handling...")
+        # Handlers
+        logging.info("🔧 Initializing handlers...")
+        user_handlers = UserHandlers(db, pixgo_service, usdt_service)
+        admin_handlers = AdminHandlers(db, telegram_service, logging_service)
+        logging.info("✅ Handlers initialized")
 
-    # Add handlers for different chat types to debug
-    async def message_logger(update, context):
-        """Log all incoming messages for debugging"""
-        try:
-            if update.message:
-                user = update.effective_user
-                chat = update.effective_chat
-                message = update.message
-                text = message.text or "[non-text]"
+        # Telegram application with basic configuration
+        logging.info("🔧 Creating Telegram application...")
+        application = Application.builder().token(Config.TELEGRAM_TOKEN).build()
+        logging.info("✅ Telegram application created")
 
-                logging.info(f"📨 MESSAGE RECEIVED: '{text}' from {user.username or user.first_name} in {chat.type} chat {chat.id}")
+        # Log network diagnostic info
+        logging.info("Bot configuration:")
+        logging.info(f"  - Telegram token configured: {'Yes' if Config.TELEGRAM_TOKEN else 'No'}")
+        logging.info(f"  - Database URL: {Config.DATABASE_URL}")
+        logging.info("Starting bot with network error handling...")
 
-                # Send immediate confirmation
-                try:
-                    await message.reply_text(f"📨 Mensagem recebida: {text[:50]}...")
-                    logging.info("✅ Confirmation sent")
-                except Exception as reply_error:
-                    logging.error(f"❌ Could not send confirmation: {reply_error}")
+        # Add handlers
+        logging.info("� Adding handlers...")
+        setup_handlers(application, user_handlers, admin_handlers, mute_service)
+        logging.info("✅ Handlers added")
 
-        except Exception as e:
-            logging.error(f"❌ Error in message logger: {e}")
+        # Run bot
+        logging.info("🚀 Starting bot execution...")
+        asyncio.run(main_async())
 
-    async def chat_member_handler(update, context):
-        """Handle chat member updates (bot added/removed from groups)"""
-        try:
-            chat_member = update.chat_member
-            if chat_member:
-                chat = chat_member.chat
-                user = chat_member.new_chat_member.user
-                status = chat_member.new_chat_member.status
-
-                if user.id == (await context.bot.get_me()).id:
-                    logging.info(f"🤖 Bot status changed in chat {chat.title} ({chat.id}): {status}")
-
-                    if status == "member":
-                        logging.info(f"✅ Bot added to group: {chat.title}")
-                        await context.bot.send_message(
-                            chat_id=chat.id,
-                            text="🤖 Bot VIP Telegram adicionado ao grupo! Use /help para ver comandos."
-                        )
-                    elif status == "administrator":
-                        logging.info(f"✅ Bot promoted to admin in: {chat.title}")
-                    elif status in ["left", "kicked"]:
-                        logging.warning(f"❌ Bot removed from group: {chat.title}")
-
-        except Exception as e:
-            logging.error(f"Error in chat member handler: {e}")
-
-    # Add message logger FIRST (highest priority) to catch ALL messages
-    application.add_handler(MessageHandler(filters.ALL, message_logger), group=0)
-
-    # Add chat member handler to track bot status in groups
-    application.add_handler(ChatMemberHandler(chat_member_handler, ChatMemberHandler.MY_CHAT_MEMBER))
+    except Exception as e:
+        logging.error(f"❌ CRITICAL ERROR in main(): {e}")
+        import traceback
+        logging.error(f"❌ Traceback: {traceback.format_exc()}")
+        raise
 
     # Add a simple test handler to verify bot is receiving messages
     async def test_handler(update, context):
@@ -160,49 +138,105 @@ def main():
             import traceback
             logging.error(f"❌ TEST HANDLER TRACEBACK: {traceback.format_exc()}")
 
-    # Add test handler (will be overridden by specific handlers)
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, test_handler))
+            # Add handlers for different chat types to debug
+        async def message_logger(update, context):
+            """Log all incoming messages for debugging"""
+            try:
+                if update.message:
+                    user = update.effective_user
+                    chat = update.effective_chat
+                    message = update.message
+                    text = message.text or "[non-text]"
 
-    # Add user command handlers
-    application.add_handler(CommandHandler("start", user_handlers.start_handler))
-    application.add_handler(CommandHandler("pay", user_handlers.pay_handler))
-    application.add_handler(CommandHandler("status", user_handlers.status_handler))
-    application.add_handler(CommandHandler("renew", user_handlers.renew_handler))
-    application.add_handler(CommandHandler("help", user_handlers.help_handler))
-    application.add_handler(CommandHandler("invite", user_handlers.invite_handler))
-    application.add_handler(CommandHandler("cancel", user_handlers.cancel_handler))
-    application.add_handler(CommandHandler("support", user_handlers.support_handler))
-    application.add_handler(CommandHandler("info", user_handlers.info_handler))
+                    logging.info(f"📨 MESSAGE RECEIVED: '{text}' from {user.username or user.first_name} in {chat.type} chat {chat.id}")
 
-    # Payment callbacks
-    application.add_handler(CallbackQueryHandler(user_handlers.payment_callback_handler, pattern="^pay_"))
+                    # Send immediate confirmation
+                    try:
+                        await message.reply_text(f"📨 Mensagem recebida: {text[:50]}...")
+                        logging.info("✅ Confirmation sent")
+                    except Exception as reply_error:
+                        logging.error(f"❌ Could not send confirmation: {reply_error}")
 
-    # Admin commands
-    application.add_handler(CommandHandler("add", admin_handlers.add_handler))
-    application.add_handler(CommandHandler("addadmin", admin_handlers.addadmin_handler))
-    application.add_handler(CommandHandler("register_group", admin_handlers.register_group_handler))
-    application.add_handler(CommandHandler("group_id", admin_handlers.group_id_handler))
-    application.add_handler(CommandHandler("kick", admin_handlers.kick_handler))
-    application.add_handler(CommandHandler("ban", admin_handlers.ban_handler))
-    application.add_handler(CommandHandler("mute", admin_handlers.mute_handler))
-    application.add_handler(CommandHandler("unban", admin_handlers.unban_handler))
-    application.add_handler(CommandHandler("unmute", admin_handlers.unmute_handler))
-    application.add_handler(CommandHandler("userinfo", admin_handlers.userinfo_handler))
-    application.add_handler(CommandHandler("pending", admin_handlers.pending_handler))
-    application.add_handler(CommandHandler("warn", admin_handlers.warn_handler))
-    application.add_handler(CommandHandler("resetwarn", admin_handlers.resetwarn_handler))
-    application.add_handler(CommandHandler("expire", admin_handlers.expire_handler))
-    application.add_handler(CommandHandler("sendto", admin_handlers.sendto_handler))
-    application.add_handler(
-        CommandHandler("broadcast", admin_handlers.broadcast_handler)
-    )
-    application.add_handler(CommandHandler("setprice", admin_handlers.setprice_handler))
-    application.add_handler(CommandHandler("settime", admin_handlers.settime_handler))
-    application.add_handler(CommandHandler("setwallet", admin_handlers.setwallet_handler))
-    application.add_handler(CommandHandler("rules", admin_handlers.rules_handler))
-    application.add_handler(CommandHandler("welcome", admin_handlers.welcome_handler))
-    application.add_handler(CommandHandler("schedule", admin_handlers.schedule_handler))
-    application.add_handler(CommandHandler("stats", admin_handlers.stats_handler))
+            except Exception as e:
+                logging.error(f"❌ Error in message logger: {e}")
+
+        async def chat_member_handler(update, context):
+            """Handle chat member updates (bot added/removed from groups)"""
+            try:
+                chat_member = update.chat_member
+                if chat_member:
+                    chat = chat_member.chat
+                    user = chat_member.new_chat_member.user
+                    status = chat_member.new_chat_member.status
+
+                    if user.id == (await context.bot.get_me()).id:
+                        logging.info(f"🤖 Bot status changed in chat {chat.title} ({chat.id}): {status}")
+
+                        if status == "member":
+                            logging.info(f"✅ Bot added to group: {chat.title}")
+                            await context.bot.send_message(
+                                chat_id=chat.id,
+                                text="🤖 Bot VIP Telegram adicionado ao grupo! Use /help para ver comandos."
+                            )
+                        elif status == "administrator":
+                            logging.info(f"✅ Bot promoted to admin in: {chat.title}")
+                        elif status in ["left", "kicked"]:
+                            logging.warning(f"❌ Bot removed from group: {chat.title}")
+
+            except Exception as e:
+                logging.error(f"Error in chat member handler: {e}")
+
+        # Add message logger FIRST (highest priority) to catch ALL messages
+        application.add_handler(MessageHandler(filters.ALL, message_logger), group=0)
+        logging.info("✅ Message logger handler added")
+
+        # Add chat member handler to track bot status in groups
+        application.add_handler(ChatMemberHandler(chat_member_handler, ChatMemberHandler.MY_CHAT_MEMBER))
+        logging.info("✅ Chat member handler added")
+
+        # Add user command handlers
+        application.add_handler(CommandHandler("start", user_handlers.start_handler))
+        application.add_handler(CommandHandler("pay", user_handlers.pay_handler))
+        application.add_handler(CommandHandler("status", user_handlers.status_handler))
+        application.add_handler(CommandHandler("renew", user_handlers.renew_handler))
+        application.add_handler(CommandHandler("help", user_handlers.help_handler))
+        application.add_handler(CommandHandler("invite", user_handlers.invite_handler))
+        application.add_handler(CommandHandler("cancel", user_handlers.cancel_handler))
+        application.add_handler(CommandHandler("support", user_handlers.support_handler))
+        application.add_handler(CommandHandler("info", user_handlers.info_handler))
+        logging.info("✅ User command handlers added")
+
+        # Payment callbacks
+        application.add_handler(CallbackQueryHandler(user_handlers.payment_callback_handler, pattern="^pay_"))
+        logging.info("✅ Payment callback handler added")
+
+        # Admin commands
+        application.add_handler(CommandHandler("add", admin_handlers.add_handler))
+        application.add_handler(CommandHandler("addadmin", admin_handlers.addadmin_handler))
+        application.add_handler(CommandHandler("register_group", admin_handlers.register_group_handler))
+        application.add_handler(CommandHandler("group_id", admin_handlers.group_id_handler))
+        application.add_handler(CommandHandler("kick", admin_handlers.kick_handler))
+        application.add_handler(CommandHandler("ban", admin_handlers.ban_handler))
+        application.add_handler(CommandHandler("mute", admin_handlers.mute_handler))
+        application.add_handler(CommandHandler("unban", admin_handlers.unban_handler))
+        application.add_handler(CommandHandler("unmute", admin_handlers.unmute_handler))
+        application.add_handler(CommandHandler("userinfo", admin_handlers.userinfo_handler))
+        application.add_handler(CommandHandler("pending", admin_handlers.pending_handler))
+        application.add_handler(CommandHandler("warn", admin_handlers.warn_handler))
+        application.add_handler(CommandHandler("resetwarn", admin_handlers.resetwarn_handler))
+        application.add_handler(CommandHandler("expire", admin_handlers.expire_handler))
+        application.add_handler(CommandHandler("sendto", admin_handlers.sendto_handler))
+        application.add_handler(
+            CommandHandler("broadcast", admin_handlers.broadcast_handler)
+        )
+        application.add_handler(CommandHandler("setprice", admin_handlers.setprice_handler))
+        application.add_handler(CommandHandler("settime", admin_handlers.settime_handler))
+        application.add_handler(CommandHandler("setwallet", admin_handlers.setwallet_handler))
+        application.add_handler(CommandHandler("rules", admin_handlers.rules_handler))
+        application.add_handler(CommandHandler("welcome", admin_handlers.welcome_handler))
+        application.add_handler(CommandHandler("schedule", admin_handlers.schedule_handler))
+        application.add_handler(CommandHandler("stats", admin_handlers.stats_handler))
+        logging.info("✅ Admin command handlers added")
     application.add_handler(CommandHandler("logs", admin_handlers.logs_handler))
     application.add_handler(CommandHandler("admins", admin_handlers.admins_handler))
     application.add_handler(CommandHandler("settings", admin_handlers.settings_handler))
@@ -253,25 +287,18 @@ def main():
                 # Force polling for development/testing, webhook only for production
                 use_webhook = bool(webhook_url and port and os.getenv('ENVIRONMENT') == 'production')
 
-                if use_webhook:
+                if use_webhook and webhook_url:
                     try:
                         logging.info(f"Setting webhook: {webhook_url}")
+                        await application.bot.set_webhook(url=webhook_url)
+                        logging.info("✅ Webhook configured successfully")
+
+                        # Configure webhook with allowed updates
                         await application.bot.set_webhook(
                             url=webhook_url,
                             allowed_updates=["message", "callback_query", "chat_member"]
                         )
-                        logging.info("✅ Webhook configured successfully")
-
-                        # Start webhook mode
-                        from telegram.ext import WebhookServer
-                        logging.info(f"Starting webhook server on port {port}")
-                        await application.start_webhook(
-                            listen="0.0.0.0",
-                            port=int(port),
-                            url_path="",
-                            webhook_url=webhook_url
-                        )
-                        logging.info("✅ Webhook server started successfully!")
+                        logging.info("✅ Webhook server configured")
 
                     except Exception as webhook_error:
                         logging.warning(f"Webhook setup failed: {webhook_error}, falling back to polling")
