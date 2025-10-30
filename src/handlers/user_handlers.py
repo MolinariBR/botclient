@@ -35,11 +35,29 @@ class UserHandlers:
         if not user or not message or not chat:
             return
 
-        # User commands should work in groups only
         if chat.type == "private":
-            await message.reply_text("❌ Comandos de usuário só podem ser executados em grupos.")
+            # Welcome message for private chats
+            private_welcome = f"""
+👋 Olá {user.first_name}!
+
+🤖 **Bot VIP Telegram**
+
+Este bot gerencia acesso a grupos VIP através de assinaturas.
+
+💰 **Preço:** R$ {Config.SUBSCRIPTION_PRICE}
+⏰ **Duração:** {Config.SUBSCRIPTION_DAYS} dias
+
+📱 **Como usar:**
+1. Adicione o bot a um grupo
+2. Use `/addadmin @seu_username` para se tornar admin
+3. Use `/help` no grupo para ver comandos
+
+❓ **Suporte:** Use /help para mais informações
+"""
+            await message.reply_text(private_welcome, parse_mode="Markdown")
             return
 
+        # Group welcome message
         welcome_text = f"""
 👋 Olá {user.first_name}!
 

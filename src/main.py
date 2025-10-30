@@ -122,13 +122,19 @@ def main():
             message = update.effective_message
 
             if user and chat and message:
-                logging.info(f"📨 Message received from {user.username or user.first_name} in chat {chat.id}: {message.text}")
+                logging.info(f"📨 TEST HANDLER: Message received from {user.username or user.first_name} in chat {chat.id}: {message.text}")
 
                 # Simple echo response for testing
-                await message.reply_text(f"✅ Bot funcionando! Recebi: {message.text[:50] if message.text else 'mensagem'}...")
+                response_text = f"✅ Bot funcionando! Recebi: {message.text[:50] if message.text else 'mensagem'}..."
+                logging.info(f"📤 TEST HANDLER: Sending response: {response_text}")
+
+                await message.reply_text(response_text)
+                logging.info("📤 TEST HANDLER: Response sent successfully")
 
         except Exception as e:
-            logging.error(f"Error in test handler: {e}")
+            logging.error(f"❌ TEST HANDLER ERROR: {e}")
+            import traceback
+            logging.error(f"❌ TEST HANDLER TRACEBACK: {traceback.format_exc()}")
 
     # Add test handler (will be overridden by specific handlers)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, test_handler))
