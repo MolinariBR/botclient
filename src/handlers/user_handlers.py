@@ -33,7 +33,10 @@ class UserHandlers:
         message = update.message
         chat = update.effective_chat
         if not user or not message or not chat:
+            logger.error("❌ Missing user, message or chat in start_handler")
             return
+
+        logger.info(f"🚀 START COMMAND: from {user.username or user.first_name} in {chat.type} chat {chat.id}")
 
         if chat.type == "private":
             # Welcome message for private chats
@@ -54,6 +57,7 @@ Este bot gerencia acesso a grupos VIP através de assinaturas.
 
 ❓ **Suporte:** Use /help para mais informações
 """
+            logger.info(f"✅ Sending private welcome to {user.first_name}")
             await message.reply_text(private_welcome, parse_mode="Markdown")
             return
 
@@ -70,6 +74,7 @@ Este bot permite que você tenha acesso a grupos VIP exclusivos através de assi
 
 Use /help para ver todos os comandos disponíveis.
 """
+        logger.info(f"✅ Sending group welcome to {user.first_name}")
         await message.reply_text(welcome_text, parse_mode="Markdown")
 
     @measure_performance("user_handlers.pay_handler")

@@ -139,7 +139,8 @@ def main():
     # Add test handler (will be overridden by specific handlers)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, test_handler))
 
-    # User commands
+    # Add user command handlers
+    application.add_handler(CommandHandler("start", user_handlers.start_handler))
     application.add_handler(CommandHandler("pay", user_handlers.pay_handler))
     application.add_handler(CommandHandler("status", user_handlers.status_handler))
     application.add_handler(CommandHandler("renew", user_handlers.renew_handler))
