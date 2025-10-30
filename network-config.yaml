@@ -1,0 +1,31 @@
+# Network Resilience Configuration for Square Cloud
+# This file contains network settings optimized for Square Cloud environment
+
+# Telegram API endpoints (may need custom DNS resolution in Square Cloud)
+TELEGRAM_API_BASE = "https://api.telegram.org"
+
+# Network timeouts (seconds)
+NETWORK_TIMEOUTS:
+  CONNECT: 30
+  READ: 60
+  WRITE: 30
+  POOL: 30
+
+# Retry configuration
+RETRY_CONFIG:
+  MAX_RETRIES: 5
+  BASE_DELAY: 10
+  MAX_DELAY: 300
+  BACKOFF_MULTIPLIER: 1.5
+
+# Connection pool settings
+CONNECTION_POOL:
+  SIZE: 4
+  MAX_KEEPALIVE: 10
+  MAX_CONNECTIONS: 10
+
+# DNS and proxy settings (if needed)
+NETWORK_SETTINGS:
+  USE_SYSTEM_PROXY: false
+  CUSTOM_DNS: false
+  FORCE_IPV4: true

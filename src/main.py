@@ -73,8 +73,14 @@ def main():
     user_handlers = UserHandlers(db, pixgo_service, usdt_service)
     admin_handlers = AdminHandlers(db, telegram_service, logging_service)
 
-    # Telegram application
+    # Telegram application with basic configuration
     application = Application.builder().token(Config.TELEGRAM_TOKEN).build()
+
+    # Log network diagnostic info
+    logging.info("Bot configuration:")
+    logging.info(f"  - Telegram token configured: {'Yes' if Config.TELEGRAM_TOKEN else 'No'}")
+    logging.info(f"  - Database URL: {Config.DATABASE_URL}")
+    logging.info("Starting bot with network error handling...")
 
     # User commands
     application.add_handler(CommandHandler("start", user_handlers.start_handler))
@@ -126,14 +132,38 @@ def main():
     logging.info("Starting bot...")
 
     async def run_bot():
-        """Run the telegram bot"""
-        await application.initialize()
-        await application.start()
-        await application.updater.start_polling()
+        """Run the telegram bot with network error handling"""
+        max_retries = 5
+        retry_delay = 10  # seconds
 
-        # Keep the bot running
-        while True:
-            await asyncio.sleep(1)
+        for attempt in range(max_retries):
+            try:
+                logging.info(f"Initializing bot (attempt {attempt + 1}/{max_retries})...")
+                await application.initialize()
+
+                logging.info("Starting polling...")
+                # Start polling with error handling
+                try:
+                    async with application:
+                        await application.start()
+                        logging.info("✅ Bot started successfully!")
+                        # Keep the bot running
+                        while True:
+                            await asyncio.sleep(1)
+                except Exception as polling_error:
+                    logging.error(f"Polling error: {polling_error}")
+                    raise
+
+            except Exception as e:
+                logging.error(f"Bot error on attempt {attempt + 1}: {e}")
+
+                if attempt < max_retries - 1:
+                    logging.info(f"Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 1.5  # Exponential backoff
+                else:
+                    logging.error("Max retries reached. Giving up.")
+                    raise
 
     async def main_async():
         """Main async function that runs bot and mute service concurrently"""
@@ -146,11 +176,12 @@ def main():
         except KeyboardInterrupt:
             logging.info("Received shutdown signal")
         finally:
-            # Stop mute service
-            await mute_service.stop()
-            await application.updater.stop()
-            await application.stop()
-            await application.shutdown()
+            # Stop services gracefully
+            try:
+                await mute_service.stop()
+                logging.info("✅ Services stopped gracefully")
+            except Exception as e:
+                logging.error(f"Error stopping services: {e}")
 
     # Run everything
     asyncio.run(main_async())

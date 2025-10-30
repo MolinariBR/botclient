@@ -95,4 +95,48 @@ Se ainda tiver problemas, verifique:
 2. Os valores estão corretos (copie do arquivo .env)
 3. O deploy foi feito após as mudanças
 
-**O bot deve funcionar perfeitamente após configurar as variáveis!** 🚀
+## 🐛 Problema Atual: Erro de Rede no Square Cloud
+
+Se você está vendo erros como:
+```
+telegram.error.NetworkError: httpx.ConnectError
+telegram.error.NetworkError: httpx.ReadError
+```
+
+Isso significa que o bot está tendo problemas de conectividade com a API do Telegram.
+
+### ✅ Solução Implementada
+
+**O código foi atualizado com:**
+
+1. **Timeouts mais longos** para conexões de rede
+2. **Retry logic** com backoff exponencial
+3. **Melhor tratamento de erros** de rede
+4. **Logs detalhados** para diagnóstico
+
+### 📊 Status Atual
+
+- ✅ **Variáveis de ambiente**: Carregadas com sucesso
+- ✅ **Mute service**: Iniciado corretamente
+- ❌ **Conectividade Telegram**: Problemas de rede no Square Cloud
+
+### 🔧 Possíveis Causas
+
+1. **Firewall do Square Cloud** bloqueando conexões externas
+2. **Problemas de DNS** no ambiente containerizado
+3. **Timeouts de rede** muito curtos para o ambiente
+4. **Limitações de rede** do plano Square Cloud
+
+### 🚀 Próximos Passos
+
+1. **Aguarde** - O bot agora tem retry automático
+2. **Verifique logs** - Procure por melhorias na conectividade
+3. **Considere upgrade** do plano Square Cloud se necessário
+4. **Teste localmente** - Verifique se o token do Telegram é válido
+
+### � Suporte
+
+Se o problema persistir:
+- Verifique se o token do Telegram está correto
+- Teste o bot localmente primeiro
+- Considere usar um VPS em vez do Square Cloud para bots
