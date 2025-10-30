@@ -7,15 +7,6 @@ from dotenv import load_dotenv
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-import os
-import logging
-
-from dotenv import load_dotenv
-
-# Setup basic logging for config loading
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 # Load environment variables from multiple sources
 logger.info("Loading configuration from environment variables...")
 
