@@ -84,6 +84,27 @@ def main():
     logging.info("Starting bot with network error handling...")
 
     # Add handlers for different chat types to debug
+    async def message_logger(update, context):
+        """Log all incoming messages for debugging"""
+        try:
+            if update.message:
+                user = update.effective_user
+                chat = update.effective_chat
+                message = update.message
+                text = message.text or "[non-text]"
+
+                logging.info(f"📨 MESSAGE RECEIVED: '{text}' from {user.username or user.first_name} in {chat.type} chat {chat.id}")
+
+                # Send immediate confirmation
+                try:
+                    await message.reply_text(f"📨 Mensagem recebida: {text[:50]}...")
+                    logging.info("✅ Confirmation sent")
+                except Exception as reply_error:
+                    logging.error(f"❌ Could not send confirmation: {reply_error}")
+
+        except Exception as e:
+            logging.error(f"❌ Error in message logger: {e}")
+
     async def chat_member_handler(update, context):
         """Handle chat member updates (bot added/removed from groups)"""
         try:
@@ -109,6 +130,9 @@ def main():
 
         except Exception as e:
             logging.error(f"Error in chat member handler: {e}")
+
+    # Add message logger FIRST (highest priority) to catch ALL messages
+    application.add_handler(MessageHandler(filters.ALL, message_logger), group=0)
 
     # Add chat member handler to track bot status in groups
     application.add_handler(ChatMemberHandler(chat_member_handler, ChatMemberHandler.MY_CHAT_MEMBER))
