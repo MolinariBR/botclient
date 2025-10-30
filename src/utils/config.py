@@ -10,18 +10,12 @@ logger = logging.getLogger(__name__)
 # Load environment variables from multiple sources
 logger.info("Loading configuration from environment variables...")
 
-# Try loading from .env first
+# Try loading from .env first (for local development)
 env_loaded = load_dotenv()
 if env_loaded:
     logger.info("Loaded configuration from .env file")
 else:
-    logger.info("No .env file found, trying .env.deploy...")
-    # Try loading from .env.deploy
-    env_deploy_loaded = load_dotenv('.env.deploy')
-    if env_deploy_loaded:
-        logger.info("Loaded configuration from .env.deploy file")
-    else:
-        logger.warning("No .env or .env.deploy file found")
+    logger.info("No .env file found, using environment variables only")
 
 logger.info("Environment variables loaded, validating configuration...")
 
