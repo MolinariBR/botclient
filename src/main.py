@@ -11,7 +11,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, ChatMemberHandler, filters
+from telegram import Update
 
 from handlers.admin_handlers import AdminHandlers
 from handlers.user_handlers import UserHandlers
@@ -82,8 +83,57 @@ def main():
     logging.info(f"  - Database URL: {Config.DATABASE_URL}")
     logging.info("Starting bot with network error handling...")
 
+    # Add handlers for different chat types to debug
+    async def chat_member_handler(update, context):
+        """Handle chat member updates (bot added/removed from groups)"""
+        try:
+            chat_member = update.chat_member
+            if chat_member:
+                chat = chat_member.chat
+                user = chat_member.new_chat_member.user
+                status = chat_member.new_chat_member.status
+
+                if user.id == (await context.bot.get_me()).id:
+                    logging.info(f"🤖 Bot status changed in chat {chat.title} ({chat.id}): {status}")
+
+                    if status == "member":
+                        logging.info(f"✅ Bot added to group: {chat.title}")
+                        await context.bot.send_message(
+                            chat_id=chat.id,
+                            text="🤖 Bot VIP Telegram adicionado ao grupo! Use /help para ver comandos."
+                        )
+                    elif status == "administrator":
+                        logging.info(f"✅ Bot promoted to admin in: {chat.title}")
+                    elif status in ["left", "kicked"]:
+                        logging.warning(f"❌ Bot removed from group: {chat.title}")
+
+        except Exception as e:
+            logging.error(f"Error in chat member handler: {e}")
+
+    # Add chat member handler to track bot status in groups
+    application.add_handler(ChatMemberHandler(chat_member_handler, ChatMemberHandler.MY_CHAT_MEMBER))
+
+    # Add a simple test handler to verify bot is receiving messages
+    async def test_handler(update, context):
+        """Simple test handler to verify bot is receiving messages"""
+        try:
+            user = update.effective_user
+            chat = update.effective_chat
+            message = update.effective_message
+
+            if user and chat and message:
+                logging.info(f"📨 Message received from {user.username or user.first_name} in chat {chat.id}: {message.text}")
+
+                # Simple echo response for testing
+                await message.reply_text(f"✅ Bot funcionando! Recebi: {message.text[:50] if message.text else 'mensagem'}...")
+
+        except Exception as e:
+            logging.error(f"Error in test handler: {e}")
+
+    # Add test handler (will be overridden by specific handlers)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, test_handler))
+
     # User commands
-    application.add_handler(CommandHandler("start", user_handlers.start_handler))
     application.add_handler(CommandHandler("pay", user_handlers.pay_handler))
     application.add_handler(CommandHandler("status", user_handlers.status_handler))
     application.add_handler(CommandHandler("renew", user_handlers.renew_handler))
@@ -145,6 +195,20 @@ def main():
                     # Quick test to see if we can reach Telegram API
                     test_response = await application.bot.get_me()
                     logging.info(f"✅ Telegram API reachable - Bot: @{test_response.username}")
+                    logging.info(f"   Bot ID: {test_response.id}")
+                    logging.info(f"   Can join groups: {test_response.can_join_groups}")
+                    logging.info(f"   Can read all messages: {test_response.can_read_all_group_messages}")
+
+                    # Test sending a message to ourselves (if possible)
+                    try:
+                        await application.bot.send_message(
+                            chat_id=test_response.id,
+                            text="🤖 Bot inicializado com sucesso! Teste de conectividade OK."
+                        )
+                        logging.info("✅ Test message sent to bot itself")
+                    except Exception as msg_error:
+                        logging.warning(f"Could not send test message: {msg_error}")
+
                 except Exception as conn_test_error:
                     logging.warning(f"Connectivity test failed: {conn_test_error}, but continuing...")
 
