@@ -22,6 +22,9 @@ ENVIRONMENT=python
 # RAM necessária (em MB)
 MEMORY=512
 
+# Porta da aplicação (opcional, mas recomendado para Square Cloud)
+PORT=8080
+
 # Arquivos a incluir no deploy
 # INCLUDE=.env.deploy
 
@@ -39,3 +42,6 @@ ENV_VARS=
   SUBSCRIPTION_DAYS="30"
   LOG_LEVEL="INFO"
   LOG_FILE="logs/bot.log"
+
+
+  

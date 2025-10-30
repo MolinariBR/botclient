@@ -36,6 +36,10 @@ fi
 
 echo "✅ Arquivo main.py encontrado"
 
+# Executar diagnóstico de conectividade
+echo "🔍 Executando diagnóstico de conectividade..."
+./diagnose.sh
+
 # Executar o bot
 echo "🤖 Executando o bot..."
 exec $PYTHON_CMD src/main.py

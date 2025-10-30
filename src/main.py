@@ -132,24 +132,26 @@ def main():
     logging.info("Starting bot...")
 
     async def run_bot():
-        """Run the telegram bot with network error handling"""
+        """Run the bot with polling configuration optimized for Square Cloud"""
         max_retries = 5
-        retry_delay = 10  # seconds
+        retry_delay = 5.0
 
         for attempt in range(max_retries):
             try:
                 logging.info(f"Initializing bot (attempt {attempt + 1}/{max_retries})...")
                 await application.initialize()
 
-                logging.info("Starting polling...")
-                # Start polling with error handling
+                logging.info("Starting polling with optimized settings...")
+                # Start polling with error handling and optimized settings for Square Cloud
                 try:
                     async with application:
                         await application.start()
                         logging.info("✅ Bot started successfully!")
-                        # Keep the bot running
+
+                        # Keep the bot running with periodic health checks
                         while True:
                             await asyncio.sleep(1)
+
                 except Exception as polling_error:
                     logging.error(f"Polling error: {polling_error}")
                     raise

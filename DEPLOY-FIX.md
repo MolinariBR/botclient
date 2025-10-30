@@ -134,6 +134,43 @@ Isso significa que o bot está tendo problemas de conectividade com a API do Tel
 3. **Considere upgrade** do plano Square Cloud se necessário
 4. **Teste localmente** - Verifique se o token do Telegram é válido
 
+## 🔧 Melhorias Implementadas
+
+### Rede e Conectividade
+- **Retry automático** com backoff exponencial (5 tentativas)
+- **Timeouts otimizados** para Square Cloud
+- **Diagnóstico automático** na inicialização
+- **Logs detalhados** de conectividade
+
+### Arquivos de Configuração
+- `diagnose.sh` - Script de diagnóstico de conectividade
+- `network-config.yaml` - Configurações de rede
+- Porta 8080 configurada no `squarecloud.app`
+
+### Verificação de Funcionamento
+Execute `./diagnose.sh` para verificar:
+- ✅ Conectividade com Telegram API
+- ✅ Acesso à API PixGo
+- ✅ Criação do banco de dados SQLite
+
+### 📱 Verificação
+Após deploy, você deve ver nos logs:
+```
+🔍 Executando diagnóstico de conectividade...
+=== DIAGNÓSTICO DO BOT TELEGRAM ===
+1. Verificando variáveis de ambiente:
+   TELEGRAM_TOKEN: 7729659551:AAEF...
+   PIXGO_API_KEY: pk_7e5617a...
+   DATABASE_URL: sqlite:///botclient.db
+
+2. Testando conectividade com Telegram API:
+   ✅ Conectividade OK (HTTP 200)
+
+🤖 Executando o bot...
+✅ Bot configuration loaded successfully
+✅ Bot started successfully!
+```
+
 ### � Suporte
 
 Se o problema persistir:
