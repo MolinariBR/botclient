@@ -139,9 +139,31 @@ def main():
         for attempt in range(max_retries):
             try:
                 logging.info(f"Initializing bot (attempt {attempt + 1}/{max_retries})...")
+
+                # Test connectivity before initializing
+                try:
+                    # Quick test to see if we can reach Telegram API
+                    test_response = await application.bot.get_me()
+                    logging.info(f"✅ Telegram API reachable - Bot: @{test_response.username}")
+                except Exception as conn_test_error:
+                    logging.warning(f"Connectivity test failed: {conn_test_error}, but continuing...")
+
                 await application.initialize()
 
                 logging.info("Starting polling with optimized settings...")
+                # Check if webhook URL is configured
+                webhook_url = os.getenv('WEBHOOK_URL')
+                if webhook_url:
+                    try:
+                        logging.info(f"Setting webhook: {webhook_url}")
+                        await application.bot.set_webhook(
+                            url=webhook_url,
+                            allowed_updates=["message", "callback_query", "chat_member"]
+                        )
+                        logging.info("✅ Webhook configured successfully")
+                    except Exception as webhook_error:
+                        logging.warning(f"Webhook setup failed: {webhook_error}, continuing with polling")
+
                 # Start polling with error handling and optimized settings for Square Cloud
                 try:
                     async with application:

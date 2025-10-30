@@ -25,6 +25,9 @@ MEMORY=512
 # Porta da aplicação (opcional, mas recomendado para Square Cloud)
 PORT=8080
 
+# Configuração para webhook (recomendado para Square Cloud)
+WEBHOOK_URL=https://your-app-id.squarecloud.app
+
 # Arquivos a incluir no deploy
 # INCLUDE=.env.deploy
 
