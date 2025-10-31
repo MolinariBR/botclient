@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -1305,17 +1306,19 @@ class AdminHandlers:
         try:
             # Get all admins
             admins = self.db.query(Admin).all()
-            logger.info(f"Found {len(admins)} admins in database")
+            logger.info(f"[ADMINS_HANDLER] Found {len(admins)} admins in database")
 
             if not admins:
+                logger.info("[ADMINS_HANDLER] No admins found")
                 await message.reply_text("👨‍💼 Nenhum administrador encontrado.")
                 return
 
             # Format admin list
             admins_text = f"👨‍💼 **Administradores do Sistema ({len(admins)})**\n\n"
+            logger.info(f"[ADMINS_HANDLER] Starting to format {len(admins)} admins")
 
             for i, admin in enumerate(admins, 1):
-                logger.info(f"Processing admin {i}: telegram_id={admin.telegram_id}, username={admin.username}")
+                logger.info(f"[ADMINS_HANDLER] Processing admin {i}/{len(admins)}: telegram_id={admin.telegram_id}, username={admin.username}, permissions={admin.permissions}")
                 admin_id = admin.telegram_id
                 username = admin.username or "N/A"
                 first_name = admin.first_name or ""
@@ -1333,18 +1336,19 @@ class AdminHandlers:
                 admin_block += f"📅 **Desde:** {created_at}\n\n"
 
                 admins_text += admin_block
-                logger.info(f"Added admin {i} to response text")
+                logger.info(f"[ADMINS_HANDLER] Added admin {i} to response text (current length: {len(admins_text)})")
 
             # Check message length
             if len(admins_text) > 4000:
-                logger.warning(f"Admin list message too long ({len(admins_text)} chars), truncating")
+                logger.warning(f"[ADMINS_HANDLER] Admin list message too long ({len(admins_text)} chars), truncating")
                 admins_text = admins_text[:3950] + "\n\n... (mensagem truncada)"
 
-            logger.info(f"Sending admin list with {len(admins)} admins")
+            logger.info(f"[ADMINS_HANDLER] Final message length: {len(admins_text)} chars")
+            logger.info(f"[ADMINS_HANDLER] Sending admin list with {len(admins)} admins")
             await message.reply_text(admins_text)
 
         except Exception as e:
-            logger.error(f"Failed to get admins list: {e}")
+            logger.error(f"[ADMINS_HANDLER] Failed to get admins list: {e}", exc_info=True)
             await message.reply_text("❌ Falha ao obter lista de administradores.")
 
     async def settings_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
