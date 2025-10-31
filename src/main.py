@@ -273,6 +273,7 @@ async def run_bot(application):
 
             # Test connectivity before initializing
             try:
+                logging.info("🔗 Testing Telegram API connectivity...")
                 # Quick test to see if we can reach Telegram API
                 test_response = await application.bot.get_me()
                 logging.info(f"✅ Telegram API reachable - Bot: @{test_response.username}")
@@ -284,14 +285,16 @@ async def run_bot(application):
                 try:
                     await application.bot.send_message(
                         chat_id=test_response.id,
-                        text="🤖 Bot inicializado com sucesso! Teste de conectividade OK."
+                        text="🤖 Bot inicializado com sucesso! Sistema de recuperação de rede ativo."
                     )
                     logging.info("✅ Test message sent to bot itself")
                 except Exception as msg_error:
-                    logging.warning(f"Could not send test message: {msg_error}")
+                    logging.warning(f"⚠️ Could not send test message: {msg_error}")
 
             except Exception as conn_test_error:
-                logging.warning(f"Connectivity test failed: {conn_test_error}, but continuing...")
+                logging.error(f"❌ CRITICAL: Cannot connect to Telegram API: {conn_test_error}")
+                logging.error("❌ Bot cannot start without API connectivity")
+                raise conn_test_error
 
             await application.initialize()
 
@@ -333,41 +336,58 @@ async def run_bot(application):
 
                 # Start polling with ROBUST error handling for Square Cloud network issues
                 try:
-                    logging.info("Starting ROBUST polling mode with network error recovery...")
+                    logging.info("🚀 Starting ROBUST polling mode with network error recovery...")
+                    logging.info("🔧 Initializing application...")
 
                     # Custom polling implementation with better error handling
                     await application.initialize()
                     await application.start()
                     logging.info("✅ Bot started successfully with robust polling!")
+                    logging.info("🔄 Starting main polling loop...")
 
                     # Custom polling loop with error recovery
                     consecutive_errors = 0
                     max_consecutive_errors = 10
                     base_delay = 1.0
                     max_delay = 60.0
+                    poll_count = 0
 
+                    logging.info("🔄 Starting custom polling loop...")
                     while True:
+                        poll_count += 1
+                        logging.debug(f"🔄 Poll cycle #{poll_count} starting...")
+
                         try:
                             # Process updates with timeout
+                            logging.debug("📡 Requesting updates from Telegram...")
                             async with asyncio.timeout(30):  # 30 second timeout for get_updates
                                 updates = await application.bot.get_updates(
                                     timeout=25,  # Shorter than our timeout
                                     allowed_updates=["message", "callback_query", "chat_member"]
                                 )
 
+                            logging.debug(f"📡 Received {len(updates)} updates from Telegram")
+
                             # Process updates if any
                             if updates:
-                                logging.info(f"📨 Received {len(updates)} updates")
+                                logging.info(f"📨 Processing {len(updates)} updates")
                                 for update in updates:
-                                    await application.process_update(update)
+                                    try:
+                                        logging.debug(f"📨 Processing update: {update.update_id}")
+                                        await application.process_update(update)
+                                        logging.debug(f"✅ Update {update.update_id} processed successfully")
+                                    except Exception as process_error:
+                                        logging.error(f"❌ Error processing update {update.update_id}: {process_error}")
                                 consecutive_errors = 0  # Reset error counter on success
+                            else:
+                                logging.debug("📡 No updates received (normal)")
 
                             # Small delay between polling cycles
                             await asyncio.sleep(0.1)
 
                         except asyncio.TimeoutError:
                             # Timeout is normal, just continue
-                            logging.debug("Polling timeout (normal)")
+                            logging.debug("⏰ Polling timeout (normal - no updates)")
                             consecutive_errors = 0
                             await asyncio.sleep(0.1)
 
@@ -379,13 +399,13 @@ async def run_bot(application):
                             logging.warning(f"   Retrying in {delay:.1f} seconds...")
 
                             if consecutive_errors >= max_consecutive_errors:
-                                logging.error(f"Too many consecutive network errors ({consecutive_errors}). Restarting bot...")
+                                logging.error(f"💀 Too many consecutive network errors ({consecutive_errors}). Restarting bot...")
                                 raise network_error
 
                             await asyncio.sleep(delay)
 
                         except Exception as update_error:
-                            logging.error(f"❌ Update processing error: {update_error}")
+                            logging.error(f"❌ Unexpected polling error: {update_error}")
                             logging.error(f"   Error type: {type(update_error)}")
                             # Continue processing other updates
                             await asyncio.sleep(1)
