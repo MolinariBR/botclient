@@ -1,4 +1,4 @@
-from handlers.admin_handlers import AdminHandlers, meuid_handler
+from handlers.admin_handlers import AdminHandlers
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from handlers.user_handlers import UserHandlers
@@ -97,7 +97,6 @@ app.add_handler(CommandHandler('schedule', admin_handlers.schedule_handler))
 app.add_handler(CommandHandler('stats', admin_handlers.stats_handler))
 app.add_handler(CommandHandler('logs', admin_handlers.logs_handler))
 app.add_handler(CommandHandler('admins', admin_handlers.admins_handler))
-app.add_handler(CommandHandler('meuid', meuid_handler))
 app.add_handler(CommandHandler('settings', admin_handlers.settings_handler))
 app.add_handler(CommandHandler('backup', admin_handlers.backup_handler))
 app.add_handler(CommandHandler('restore', admin_handlers.restore_handler))
