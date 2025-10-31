@@ -23,6 +23,11 @@ logger = logging.getLogger(__name__)
 
 class AdminHandlers:
 
+    def __init__(self, db: Session, telegram_service: TelegramService, logging_service: LoggingService):
+        self.db = db
+        self.telegram = telegram_service
+        self.logging = logging_service
+
     async def add_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /add command"""
         user = update.effective_user
@@ -145,11 +150,6 @@ class AdminHandlers:
             await message.reply_text(f"Usuário @{username} adicionado com sucesso ao grupo.")
         else:
             await message.reply_text(f"Usuário @{username} adicionado ao banco de dados, mas falha ao notificar.")
-    def __init__(self, db: Session, telegram_service: TelegramService, logging_service: LoggingService):
-        self.db = db
-        self.telegram = telegram_service
-        self.logging = logging_service
-
     async def addadmin_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /addadmin command - add new administrators"""
         user = update.effective_user
@@ -210,46 +210,70 @@ class AdminHandlers:
 
     async def register_group_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /register_group command"""
-        user = update.effective_user
-        message = update.message
-        chat = update.effective_chat
+        try:
+            logger.info("🚨 REGISTER_GROUP_HANDLER: Function called!")
+            
+            user = update.effective_user
+            message = update.message
+            chat = update.effective_chat
 
-        if not user or not message or not chat:
-            return
+            logger.info(f"register_group_handler called by user {user.id if user else 'None'} ({user.username if user else 'None'}) in chat {chat.id if chat else 'None'} (type: {chat.type if chat else 'None'})")
 
-        # Check if user is admin
-        admin = self.db.query(Admin).filter_by(telegram_id=str(user.id)).first()
-        if not admin:
-            await message.reply_text("Acesso negado. Você não é um administrador.")
-            return
+            if not user or not message or not chat:
+                logger.warning("register_group_handler: Missing user, message or chat")
+                return
 
-        # FR-004: Restrict admin commands to private chat only
-        if chat.type != "private":
-            await message.reply_text("❌ Comandos administrativos só podem ser executados no chat privado com o bot.")
-            return
+            # Check if user is admin
+            admin = self.db.query(Admin).filter_by(telegram_id=str(user.id)).first()
+            logger.info(f"Admin check for user {user.id}: {'Found' if admin else 'Not found'}")
+            
+            if not admin:
+                logger.warning(f"Access denied for user {user.id} - not an admin")
+                await message.reply_text("Acesso negado. Você não é um administrador.")
+                return
 
-        # Parse group_id from args
-        if not context.args or len(context.args) < 1:
-            await message.reply_text("Uso: /register_group <group_telegram_id>")
-            return
+            # FR-004: Restrict admin commands to private chat only
+            if chat.type != "private":
+                logger.warning(f"Command used in non-private chat: {chat.type}")
+                await message.reply_text("❌ Comandos administrativos só podem ser executados no chat privado com o bot.")
+                return
 
-        group_telegram_id = context.args[0]
+            # Parse group_id from args
+            if not context.args or len(context.args) < 1:
+                logger.warning("No arguments provided for register_group")
+                await message.reply_text("Uso: /register_group <group_telegram_id>")
+                return
 
-        # Check if group already exists
-        existing_group = self.db.query(Group).filter_by(telegram_group_id=group_telegram_id).first()
-        if existing_group:
-            await message.reply_text(f"Grupo {group_telegram_id} já está registrado.")
-            return
+            group_telegram_id = context.args[0]
+            logger.info(f"Attempting to register group: {group_telegram_id}")
 
-        # Create group
-        group = Group(
-            telegram_group_id=group_telegram_id,
-            name=f"Grupo VIP {group_telegram_id}"
-        )
-        self.db.add(group)
-        self.db.commit()
+            # Check if group already exists
+            existing_group = self.db.query(Group).filter_by(telegram_group_id=group_telegram_id).first()
+            if existing_group:
+                logger.info(f"Group {group_telegram_id} already exists")
+                await message.reply_text(f"Grupo {group_telegram_id} já está registrado.")
+                return
 
-        await message.reply_text(f"Grupo {group_telegram_id} registrado com sucesso.")
+            # Create group
+            group = Group(
+                telegram_group_id=group_telegram_id,
+                name=f"Grupo VIP {group_telegram_id}"
+            )
+            self.db.add(group)
+            self.db.commit()
+            logger.info(f"Group {group_telegram_id} registered successfully")
+
+            await message.reply_text(f"Grupo {group_telegram_id} registrado com sucesso.")
+            logger.info("register_group_handler: Success response sent")
+            
+        except Exception as e:
+            logger.error(f"🚨 REGISTER_GROUP_HANDLER ERROR: {e}")
+            logger.error(f"🚨 REGISTER_GROUP_HANDLER TRACEBACK: {traceback.format_exc()}")
+            try:
+                if update.message:
+                    await update.message.reply_text(f"Erro interno: {str(e)}")
+            except:
+                pass
 
     async def group_id_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /group_id command - show current group ID"""
@@ -260,7 +284,7 @@ class AdminHandlers:
             message = update.message
             chat = update.effective_chat
 
-            logger.info(f"group_id_handler called by user {user.id if user else 'None'} in chat {chat.id if chat else 'None'} (type: {chat.type if chat else 'None'})")
+            logger.info(f"group_id_handler called by user {user.id if user else 'None'} ({user.username if user else 'None'}) in chat {chat.id if chat else 'None'} (type: {chat.type if chat else 'None'})")
 
             if not user or not message or not chat:
                 logger.warning("group_id_handler: Missing user, message or chat")
@@ -268,11 +292,13 @@ class AdminHandlers:
 
             # This command can be used in groups to get the ID (no admin check required)
             if chat.type == "private":
+                logger.info("group_id_handler: Command used in private chat, instructing user to use in group")
                 await message.reply_text("Este comando deve ser usado em um grupo.")
                 return
 
+            logger.info(f"group_id_handler: Returning group ID {chat.id} for user {user.id}")
             await message.reply_text(f"ID do grupo: {chat.id}")
-            logger.info(f"group_id_handler: Successfully returned group ID {chat.id} for user {user.id}")
+            logger.info("group_id_handler: Success response sent")
         except Exception as e:
             logger.error(f"🚨 GROUP_ID_HANDLER ERROR: {e}")
             logger.error(f"🚨 GROUP_ID_HANDLER TRACEBACK: {traceback.format_exc()}")
