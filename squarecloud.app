@@ -36,7 +36,7 @@ WEBHOOK_URL=https://your-app-id.squarecloud.app
 
 # Variáveis de ambiente (podem ser configuradas no painel também)
 ENV_VARS=
-  TELEGRAM_TOKEN="7729659551:AAEFWjED5bU4nCqgwhYpQa4UwvAK99WZ5vA"
+  TELEGRAM_TOKEN="8126134321:AAE_kyQocfwQCJug4Vj_WYSHyQIQOX1H6RA"
   PIXGO_API_KEY="pk_7e5617a42e9b704d5e320629da68e0097edb718510cf01b3abb6b11bd33d92d9"
   PIXGO_BASE_URL="https://pixgo.org/api/v1"
   USDT_WALLET_ADDRESS="0x87C3373E83CDe3640F7b636033D2591ac05b4793"
