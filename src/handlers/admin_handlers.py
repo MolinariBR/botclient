@@ -150,13 +150,6 @@ class AdminHandlers:
         self.telegram = telegram_service
         self.logging = logging_service
 
-
-
-# Handler universal para /meuid
-async def meuid_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    await update.message.reply_text(f"Seu telegram_id é: {user_id}")
-
     async def addadmin_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /addadmin command - add new administrators"""
         user = update.effective_user
