@@ -100,6 +100,7 @@ app.add_handler(CommandHandler('admins', admin_handlers.admins_handler))
 app.add_handler(CommandHandler('settings', admin_handlers.settings_handler))
 app.add_handler(CommandHandler('backup', admin_handlers.backup_handler))
 app.add_handler(CommandHandler('restore', admin_handlers.restore_handler))
+app.add_handler(CommandHandler('restore_quick', admin_handlers.restore_handler))
 logging.info('Todos os handlers de usuário e admin ativados.')
 
 print('Bot main.py rodando com todos os handlers. Teste comandos de usuário e admin no Telegram.')
@@ -221,6 +222,7 @@ def setup_handlers(application, user_handlers, admin_handlers, mute_service):
     application.add_handler(CommandHandler("settings", admin_handlers.settings_handler))
     application.add_handler(CommandHandler("backup", admin_handlers.backup_handler))
     application.add_handler(CommandHandler("restore", admin_handlers.restore_handler))
+    application.add_handler(CommandHandler("restore_quick", admin_handlers.restore_handler))
     logging.info("✅ Admin command handlers added")
     print("[DEBUG] Todos os handlers foram adicionados com sucesso.")
     logging.info("[DEBUG] Todos os handlers foram adicionados com sucesso.")
@@ -559,6 +561,7 @@ def main():
     application.add_handler(CommandHandler("settings", admin_handlers.settings_handler))
     application.add_handler(CommandHandler("backup", admin_handlers.backup_handler))
     application.add_handler(CommandHandler("restore", admin_handlers.restore_handler))
+    application.add_handler(CommandHandler("restore_quick", admin_handlers.restore_handler))
 
     # Start the bot
     logging.info("Starting bot...")

@@ -1689,9 +1689,19 @@ class AdminHandlers:
                 await message.reply_text("❌ Nenhuma restauração pendente para confirmar.")
                 return
 
+        # Check if this is a quick restore command
+        if message.text and message.text.strip().lower() == "/restore_quick":
+            await self._quick_restore(message)
+            return
+
         # Check if message has a document
         if not message.document:
-            await message.reply_text("Envie um arquivo de backup junto com o comando /restore")
+            await message.reply_text(
+                "📤 **Opções de Restauração:**\n\n"
+                "🔹 **Arquivo:** Envie `/restore` + arquivo de backup\n"
+                "🔹 **Rápida:** Envie `/restore_quick` para restaurar backup automático\n\n"
+                "⚠️ **ATENÇÃO:** Ambos apagam todos os dados atuais!"
+            )
             return
 
         # Check file extension
@@ -1803,3 +1813,95 @@ class AdminHandlers:
             logger.error(f"Failed to restore backup: {e}")
             self.db.rollback()  # Rollback on error
             await message.reply_text("❌ Falha ao restaurar backup do sistema.")
+
+    async def _quick_restore(self, message):
+        """Execute quick restore from hardcoded backup URL"""
+        try:
+            import json
+            import urllib.request
+
+            # URL do backup no GitHub
+            backup_url = "https://raw.githubusercontent.com/MolinariBR/botclient/master/backup_complete_20251031_122314.json"
+
+            await message.reply_text("🔄 Baixando backup do repositório...")
+
+            # Download backup
+            with urllib.request.urlopen(backup_url) as response:
+                backup_data = json.loads(response.read().decode('utf-8'))
+
+            # Validate backup
+            if "tables" not in backup_data or "version" not in backup_data:
+                await message.reply_text("❌ Backup do repositório inválido.")
+                return
+
+            await message.reply_text(
+                f"⚠️ **RESTAURAÇÃO RÁPIDA CONFIRMADA**\n\n"
+                f"📦 Backup: {backup_data.get('backup_timestamp', 'N/A')}\n"
+                f"👨‍💼 Admins: {len(backup_data['tables'].get('admins', []))}\n"
+                f"👥 Usuários: {len(backup_data['tables'].get('users', []))}\n\n"
+                f"🔄 Executando restauração..."
+            )
+
+            # Execute restore directly
+            from datetime import datetime
+
+            # Clear existing data (in reverse dependency order)
+            self.db.query(ScheduledMessage).delete()
+            self.db.query(Warning).delete()
+            self.db.query(GroupMembership).delete()
+            self.db.query(Payment).delete()
+            self.db.query(SystemConfig).delete()
+            self.db.query(Group).delete()
+            self.db.query(Admin).delete()
+            self.db.query(User).delete()
+
+            # Restore data
+            table_restore_order = [
+                ("users", User),
+                ("admins", Admin),
+                ("groups", Group),
+                ("payments", Payment),
+                ("warnings", Warning),
+                ("group_memberships", GroupMembership),
+                ("system_configs", SystemConfig),
+                ("scheduled_messages", ScheduledMessage)
+            ]
+
+            restored_counts = {}
+
+            for table_name, model_class in table_restore_order:
+                if table_name in backup_data["tables"]:
+                    records = backup_data["tables"][table_name]
+                    restored_counts[table_name] = 0
+
+                    for record_data in records:
+                        # Convert ISO datetime strings back to datetime objects
+                        for key, value in record_data.items():
+                            column = getattr(model_class.__table__.columns, key, None)
+                            if column and hasattr(column.type, 'python_type'):
+                                if column.type.python_type == datetime:
+                                    if value and isinstance(value, str):
+                                        record_data[key] = datetime.fromisoformat(value)
+
+                        # Create new record
+                        new_record = model_class(**record_data)
+                        self.db.add(new_record)
+                        restored_counts[table_name] += 1
+
+            self.db.commit()
+
+            # Report results
+            result_text = "✅ **Restauração Rápida Concluída!**\n\n"
+            result_text += f"📦 Backup: {backup_data.get('backup_timestamp', 'N/A')}\n\n"
+            result_text += "**Registros restaurados:**\n"
+
+            for table_name, count in restored_counts.items():
+                table_display_name = table_name.replace('_', ' ').title()
+                result_text += f"• {table_display_name}: {count}\n"
+
+            await message.reply_text(result_text)
+
+        except Exception as e:
+            logger.error(f"Failed quick restore: {e}")
+            self.db.rollback()
+            await message.reply_text("❌ Falha na restauração rápida.")
