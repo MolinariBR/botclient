@@ -24,43 +24,11 @@ class AdminHandlers:
         self.telegram = telegram_service
         self.logging = logging_service
 
-        # ...existing code...
 
 # Handler universal para /meuid
-from telegram import Update
-from telegram.ext import ContextTypes
-
 async def meuid_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     await update.message.reply_text(f"Seu telegram_id é: {user_id}")
-        # Apply logging decorators to admin handlers
-        self.add_handler = LoggingService.create_admin_action_decorator(logging_service, "add_admin")(self.add_handler)
-        self.register_group_handler = LoggingService.create_admin_action_decorator(logging_service, "register_group")(self.register_group_handler)
-        self.group_id_handler = LoggingService.create_admin_action_decorator(logging_service, "group_id")(self.group_id_handler)
-        self.kick_handler = LoggingService.create_admin_action_decorator(logging_service, "kick")(self.kick_handler)
-        self.ban_handler = LoggingService.create_admin_action_decorator(logging_service, "ban")(self.ban_handler)
-        self.unban_handler = LoggingService.create_admin_action_decorator(logging_service, "unban")(self.unban_handler)
-        self.unmute_handler = LoggingService.create_admin_action_decorator(logging_service, "unmute")(self.unmute_handler)
-        self.mute_handler = LoggingService.create_admin_action_decorator(logging_service, "mute")(self.mute_handler)
-        self.warn_handler = LoggingService.create_admin_action_decorator(logging_service, "warn")(self.warn_handler)
-        self.resetwarn_handler = LoggingService.create_admin_action_decorator(logging_service, "resetwarn")(self.resetwarn_handler)
-        self.expire_handler = LoggingService.create_admin_action_decorator(logging_service, "expire")(self.expire_handler)
-        self.sendto_handler = LoggingService.create_admin_action_decorator(logging_service, "sendto")(self.sendto_handler)
-        self.userinfo_handler = LoggingService.create_admin_action_decorator(logging_service, "userinfo")(self.userinfo_handler)
-        self.pending_handler = LoggingService.create_admin_action_decorator(logging_service, "pending")(self.pending_handler)
-        self.broadcast_handler = LoggingService.create_admin_action_decorator(logging_service, "broadcast")(self.broadcast_handler)
-        self.setprice_handler = LoggingService.create_admin_action_decorator(logging_service, "setprice")(self.setprice_handler)
-        self.settime_handler = LoggingService.create_admin_action_decorator(logging_service, "settime")(self.settime_handler)
-        self.setwallet_handler = LoggingService.create_admin_action_decorator(logging_service, "setwallet")(self.setwallet_handler)
-        self.stats_handler = LoggingService.create_admin_action_decorator(logging_service, "stats")(self.stats_handler)
-        self.logs_handler = LoggingService.create_admin_action_decorator(logging_service, "logs")(self.logs_handler)
-        self.admins_handler = LoggingService.create_admin_action_decorator(logging_service, "admins")(self.admins_handler)
-        self.settings_handler = LoggingService.create_admin_action_decorator(logging_service, "settings")(self.settings_handler)
-        self.rules_handler = LoggingService.create_admin_action_decorator(logging_service, "rules")(self.rules_handler)
-        self.welcome_handler = LoggingService.create_admin_action_decorator(logging_service, "welcome")(self.welcome_handler)
-        self.schedule_handler = LoggingService.create_admin_action_decorator(logging_service, "schedule")(self.schedule_handler)
-        self.backup_handler = LoggingService.create_admin_action_decorator(logging_service, "backup")(self.backup_handler)
-        self.restore_handler = LoggingService.create_admin_action_decorator(logging_service, "restore")(self.restore_handler)
 
     async def add_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /add command"""
