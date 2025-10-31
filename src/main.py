@@ -206,6 +206,19 @@ def setup_handlers(application, user_handlers, admin_handlers, mute_service):
     application.add_handler(CommandHandler("group_id", admin_handlers.group_id_handler), group=-1)
     logging.info("✅ User command handlers added")
 
+    # Add test handler for debugging
+    async def test_group_handler(update, context):
+        try:
+            message = update.message
+            if message and message.text:
+                logging.info(f"🧪 TEST GROUP HANDLER: Received '{message.text}'")
+                await message.reply_text(f"🧪 Teste: Recebi '{message.text}'")
+        except Exception as e:
+            logging.error(f"🧪 TEST GROUP HANDLER ERROR: {e}")
+
+    application.add_handler(CommandHandler("test_group", test_group_handler), group=-2)
+    logging.info("✅ Test group handler added")
+
     # Add admin command handlers
     application.add_handler(CommandHandler("add", admin_handlers.add_handler))
     application.add_handler(CommandHandler("kick", admin_handlers.kick_handler))
