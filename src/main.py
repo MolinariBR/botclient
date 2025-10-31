@@ -125,38 +125,6 @@ def setup_handlers(application, user_handlers, admin_handlers, mute_service):
     application.add_handler(MessageHandler(filters.ALL, message_logger), group=0)  # ENABLED
     logging.info("✅ Message logger handler added (UNIVERSAL) - should log ALL messages")
 
-    # DEBUG: Add a command-specific logger to see if commands are being recognized
-    async def command_logger(update, context):
-        """Log all command messages specifically"""
-        try:
-            if update.message and update.message.text and update.message.text.startswith('/'):
-                logging.info(f"🔥 COMMAND LOGGER: Detected command '{update.message.text}' from {update.effective_user.username}")
-        except Exception as e:
-            logging.error(f"Command logger error: {e}")
-
-    application.add_handler(MessageHandler(filters.COMMAND, command_logger), group=1)
-    logging.info("✅ Command logger handler added")
-
-    # DEBUG: Add specific register_group handler with high priority
-    async def debug_register_group(update, context):
-        """Debug handler for register_group command"""
-        try:
-            logging.info("🎯 DEBUG REGISTER_GROUP: Handler called!")
-            user = update.effective_user
-            message = update.message
-            logging.info(f"🎯 DEBUG REGISTER_GROUP: User {user.id if user else 'None'}, Message: {message.text if message else 'None'}")
-            
-            # Call the actual handler
-            await admin_handlers.register_group_handler(update, context)
-            logging.info("🎯 DEBUG REGISTER_GROUP: Actual handler completed")
-        except Exception as e:
-            logging.error(f"🎯 DEBUG REGISTER_GROUP ERROR: {e}")
-            import traceback
-            logging.error(f"🎯 DEBUG REGISTER_GROUP TRACEBACK: {traceback.format_exc()}")
-
-    application.add_handler(CommandHandler("register_group", debug_register_group), group=-20)  # Very high priority
-    logging.info("✅ Debug register_group handler added with high priority")
-
     # Add chat member handler to track bot status in groups
     application.add_handler(ChatMemberHandler(chat_member_handler, ChatMemberHandler.MY_CHAT_MEMBER))
     logging.info("✅ Chat member handler added")

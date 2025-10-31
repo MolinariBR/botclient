@@ -255,7 +255,11 @@ class AdminHandlers:
             existing_group = self.db.query(Group).filter_by(telegram_group_id=group_telegram_id).first()
             if existing_group:
                 logger.info(f"Group {group_telegram_id} already exists")
-                await message.reply_text(f"Grupo {group_telegram_id} já está registrado.")
+                try:
+                    await message.reply_text(f"Grupo {group_telegram_id} já está registrado.")
+                    logger.info("Reply sent: group already exists")
+                except Exception as reply_error:
+                    logger.error(f"Failed to send reply for existing group: {reply_error}")
                 return
 
             # Create group
@@ -267,7 +271,11 @@ class AdminHandlers:
             self.db.commit()
             logger.info(f"Group {group_telegram_id} registered successfully")
 
-            await message.reply_text(f"Grupo {group_telegram_id} registrado com sucesso.")
+            try:
+                await message.reply_text(f"Grupo {group_telegram_id} registrado com sucesso.")
+                logger.info("Reply sent: group registered successfully")
+            except Exception as reply_error:
+                logger.error(f"Failed to send success reply: {reply_error}")
             logger.info("register_group_handler: Success response sent")
             
         except Exception as e:
