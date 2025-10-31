@@ -5,12 +5,12 @@ from sqlalchemy.orm import Session
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
-from src.models.payment import Payment
-from src.models.user import User
-from src.services.pixgo_service import PixGoService
-from src.services.usdt_service import USDTService
-from src.utils.config import Config
-from src.utils.performance import measure_performance, measure_block
+from ..models.payment import Payment
+from ..models.user import User
+from ..services.pixgo_service import PixGoService
+from ..services.usdt_service import USDTService
+from ..utils.config import Config
+from ..utils.performance import measure_performance, measure_block
 
 logger = logging.getLogger(__name__)
 
@@ -331,8 +331,8 @@ Aguarde as instruções de pagamento...""",
             parse_mode="Markdown"
         )
 
-    @measure_performance("user_handlers.help_handler")
-    async def help_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    @measure_performance("user_handlers.help_handler_old")
+    async def help_handler_old(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /help command - show available commands"""
         user = update.effective_user
         message = update.message
@@ -341,8 +341,10 @@ Aguarde as instruções de pagamento...""",
             return
 
         # Check if user is admin
-        from src.models.admin import Admin
+        from ..models.admin import Admin
         is_admin = self.db.query(Admin).filter(Admin.telegram_id == user.id).first() is not None
+
+        logger.info(f"📖 HELP COMMAND: User {user.username or user.first_name} is_admin={is_admin}")
 
         help_text = f"""
 🤖 **Bot VIP Telegram - Ajuda**
@@ -589,6 +591,7 @@ Este link permite que novos usuários se juntem ao grupo VIP.
     @measure_performance("user_handlers.help_handler")
     async def help_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /help command - show available commands"""
+        logger.info("📖 HELP HANDLER: Called!")
         user = update.effective_user
         message = update.message
         chat = update.effective_chat
@@ -596,7 +599,7 @@ Este link permite que novos usuários se juntem ao grupo VIP.
             return
 
         # Check if user is admin
-        from src.models.admin import Admin
+        from ..models.admin import Admin
         is_admin = self.db.query(Admin).filter(Admin.telegram_id == user.id).first() is not None
 
         # Determine help content based on chat type

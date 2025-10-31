@@ -5,7 +5,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from src.models.user import User
+from ..models.user import User
 
 logger = logging.getLogger(__name__)
 

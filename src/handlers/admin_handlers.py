@@ -8,15 +8,15 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from telegram import Message
 
-from src.models.admin import Admin
-from src.models.group import Group, GroupMembership
-from src.models.payment import Payment
-from src.models.user import User
-from src.models.warning import Warning
-from src.models.system_config import SystemConfig
-from src.models.scheduled_message import ScheduledMessage
-from src.services.telegram_service import TelegramService
-from src.services.logging_service import LoggingService
+from ..models.admin import Admin
+from ..models.group import Group, GroupMembership
+from ..models.payment import Payment
+from ..models.user import User
+from ..models.warning import Warning
+from ..models.system_config import SystemConfig
+from ..models.scheduled_message import ScheduledMessage
+from ..services.telegram_service import TelegramService
+from ..services.logging_service import LoggingService
 
 logger = logging.getLogger(__name__)
 
@@ -1226,7 +1226,7 @@ class AdminHandlers:
             ).count()
 
             # Get scheduled messages count
-            from src.models.scheduled_message import ScheduledMessage
+            from ..models.scheduled_message import ScheduledMessage
             scheduled_messages = self.db.query(ScheduledMessage).filter_by(is_active=True).count()
 
             # Format statistics
