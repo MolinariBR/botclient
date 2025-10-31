@@ -202,6 +202,7 @@ def setup_handlers(application, user_handlers, admin_handlers, mute_service):
     application.add_handler(CommandHandler("status", debug_status_handler))
     application.add_handler(CommandHandler("pay", user_handlers.pay_handler))
     application.add_handler(CommandHandler("renew", user_handlers.renew_handler))
+    application.add_handler(CommandHandler("group_id", admin_handlers.group_id_handler), group=-1)
     logging.info("✅ User command handlers added")
 
     # Add admin command handlers
@@ -536,7 +537,7 @@ def main():
         application.add_handler(CommandHandler("add", admin_handlers.add_handler))
         application.add_handler(CommandHandler("addadmin", admin_handlers.addadmin_handler))
         application.add_handler(CommandHandler("register_group", admin_handlers.register_group_handler))
-        application.add_handler(CommandHandler("group_id", admin_handlers.group_id_handler), group=-1)
+        # application.add_handler(CommandHandler("group_id", admin_handlers.group_id_handler), group=-1)  # Moved to user handlers
         logging.info("✅ group_id command handler added")
         application.add_handler(CommandHandler("kick", admin_handlers.kick_handler))
         application.add_handler(CommandHandler("ban", admin_handlers.ban_handler))

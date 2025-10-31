@@ -262,24 +262,13 @@ class AdminHandlers:
             logger.warning("group_id_handler: Missing user, message or chat")
             return
 
-        # Check if user is admin
-        try:
-            admin = self.db.query(Admin).filter_by(telegram_id=str(user.id)).first()
-            logger.info(f"group_id_handler: Admin check for user {user.id}: {'Found' if admin else 'Not found'}")
-            if not admin:
-                await message.reply_text("Acesso negado. Você não é um administrador.")
-                return
-        except Exception as e:
-            logger.error(f"group_id_handler: Database error checking admin: {e}")
-            await message.reply_text("Erro interno do banco de dados.")
-            return
-
-        # This command can be used in groups to get the ID
+        # This command can be used in groups to get the ID (no admin check required)
         if chat.type == "private":
             await message.reply_text("Este comando deve ser usado em um grupo.")
             return
 
         await message.reply_text(f"ID do grupo: {chat.id}")
+        logger.info(f"group_id_handler: Successfully returned group ID {chat.id} for user {user.id}")
 
     async def kick_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /kick command"""
