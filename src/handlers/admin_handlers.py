@@ -1896,7 +1896,7 @@ class AdminHandlers:
                         # Safe data type conversion with error handling
                         try:
                             # Skip conversion for critical string fields that should remain as-is
-                            critical_string_fields = {'telegram_id', 'username', 'first_name', 'last_name', 'status_assinatura'}
+                            critical_string_fields = {'telegram_id', 'username', 'first_name', 'last_name', 'status_assinatura', 'permissions'}
                             
                             for key, value in list(record_data.items()):
                                 # Handle null values
@@ -1935,6 +1935,11 @@ class AdminHandlers:
                         except Exception as record_error:
                             logger.error(f"Failed to create {model_class.__name__} record: {record_error}")
                             logger.error(f"Record data: {record_data}")
+                            logger.error(f"Table: {table_name}, Record keys: {list(record_data.keys())}")
+                            # Try to identify the problematic field
+                            for k, v in record_data.items():
+                                if v is None:
+                                    logger.error(f"NULL value in field: {k}")
                             # Continue with next record instead of failing completely
 
             self.db.commit()
