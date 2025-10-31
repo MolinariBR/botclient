@@ -239,12 +239,16 @@ class AdminHandlers:
                 return
 
             # Parse group_id from args
+            logger.info(f"context.args: {context.args}")
+            logger.info(f"len(context.args): {len(context.args) if context.args else 'None'}")
+            
             if not context.args or len(context.args) < 1:
                 logger.warning("No arguments provided for register_group")
                 await message.reply_text("Uso: /register_group <group_telegram_id>")
                 return
 
             group_telegram_id = context.args[0]
+            logger.info(f"Parsed group_telegram_id: '{group_telegram_id}'")
             logger.info(f"Attempting to register group: {group_telegram_id}")
 
             # Check if group already exists
