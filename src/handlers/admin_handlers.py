@@ -1845,15 +1845,30 @@ class AdminHandlers:
             # Execute restore directly
             from datetime import datetime
 
-            # Clear existing data (in reverse dependency order)
-            self.db.query(ScheduledMessage).delete()
-            self.db.query(Warning).delete()
-            self.db.query(GroupMembership).delete()
-            self.db.query(Payment).delete()
-            self.db.query(SystemConfig).delete()
-            self.db.query(Group).delete()
-            self.db.query(Admin).delete()
-            self.db.query(User).delete()
+            # Clear existing data using raw SQL to avoid constraint issues
+            from sqlalchemy import text
+
+            tables_to_clear = [
+                'scheduled_messages',
+                'warnings',
+                'group_memberships',
+                'payments',
+                'system_configs',
+                'groups',
+                'admins',
+                'users'
+            ]
+
+            for table_name in tables_to_clear:
+                try:
+                    self.db.execute(text(f"DELETE FROM {table_name}"))
+                except Exception as e:
+                    logger.warning(f"Could not delete from {table_name}: {e}")
+                    # Try with CASCADE if supported
+                    try:
+                        self.db.execute(text(f"DELETE FROM {table_name} CASCADE"))
+                    except Exception as e2:
+                        logger.error(f"Failed to delete from {table_name} even with CASCADE: {e2}")
 
             # Restore data
             table_restore_order = [
