@@ -233,6 +233,35 @@ def setup_handlers(application, user_handlers, admin_handlers, mute_service):
     application.add_handler(CommandHandler("test_group", test_group_handler), group=-10)
     logging.info("✅ Test group handler added")
 
+    # Add a simple group message responder for testing
+    async def group_message_test(update, context):
+        try:
+            message = update.message
+            if message and message.chat.type in ['group', 'supergroup']:
+                # Only respond to messages that start with "TEST:"
+                if message.text and message.text.upper().startswith("TEST:"):
+                    logging.info(f"🎯 GROUP TEST: Received '{message.text}' in group {message.chat.id}")
+                    await message.reply_text(f"🎯 Grupo detectado! ID: {message.chat.id}")
+                    logging.info("🎯 GROUP TEST: Response sent")
+        except Exception as e:
+            logging.error(f"🎯 GROUP TEST ERROR: {e}")
+
+    application.add_handler(MessageHandler(filters.TEXT & filters.ChatType.GROUPS, group_message_test), group=-5)
+    logging.info("✅ Group message test handler added")
+
+    # Add a catch-all group handler for debugging
+    async def catch_all_groups(update, context):
+        try:
+            message = update.message
+            if message and message.chat.type in ['group', 'supergroup']:
+                logging.info(f"🎣 CATCH-ALL: Message in group {message.chat.id}: '{message.text}'")
+                # Don't respond to avoid spam, just log
+        except Exception as e:
+            logging.error(f"🎣 CATCH-ALL ERROR: {e}")
+
+    application.add_handler(MessageHandler(filters.ALL & filters.ChatType.GROUPS, catch_all_groups), group=100)  # Lowest priority
+    logging.info("✅ Catch-all group handler added")
+
     # Add admin command handlers
     application.add_handler(CommandHandler("add", admin_handlers.add_handler))
     application.add_handler(CommandHandler("kick", admin_handlers.kick_handler))
