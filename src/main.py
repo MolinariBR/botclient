@@ -22,20 +22,17 @@ from telegram.ext import (
 )
 
 # Handlers / Services / Utils (assumo que já existem em seu projeto)
-from .handlers.admin_handlers import AdminHandlers
-from .handlers.user_handlers import UserHandlers
-from .utils.config import Config
-from .utils.logger import setup_logging
-from .services.mute_service import MuteService
-from .services.pixgo_service import PixGoService
-from .services.usdt_service import USDTService
-from .services.telegram_service import TelegramService
-from .services.logging_service import LoggingService
+from handlers.admin_handlers import AdminHandlers
+from handlers.user_handlers import UserHandlers
+from utils.config import Config
+from utils.logger import setup_logging
+from services.mute_service import MuteService
+from services.pixgo_service import PixGoService
+from services.usdt_service import USDTService
+from services.telegram_service import TelegramService
+from services.logging_service import LoggingService
 
 # ---------- CONFIG / ENV ----------
-# Garante path do projeto (preserva import local caso seja necessário)
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".")))
-
 load_dotenv(".env.local")  # chamado apenas uma vez
 # Carregar token a partir do Config para coerência
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN") or getattr(Config, "TELEGRAM_TOKEN", None)
