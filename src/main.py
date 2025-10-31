@@ -6,12 +6,13 @@ from handlers.user_handlers import UserHandlers
 # Garante que o diretório raiz do projeto está no sys.path antes de qualquer import
 import sys
 import os
+import asyncio
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import os
 import logging
 from dotenv import load_dotenv
-from telegram.ext import Application, CommandHandler
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ChatMemberHandler
 from utils.config import Config
 from utils.logger import setup_logging
 
@@ -369,7 +370,7 @@ def main():
         logging.info("✅ Logging setup complete")
 
         # Start performance monitoring
-        start_performance_monitoring()
+        # start_performance_monitoring()  # TODO: Implement performance monitoring
         logging.info("✅ Performance monitoring started")
 
         # Validate configuration

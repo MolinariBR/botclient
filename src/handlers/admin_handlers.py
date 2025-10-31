@@ -1893,6 +1893,20 @@ class AdminHandlers:
                     restored_counts[table_name] = 0
 
                     for record_data in records:
+                        # Convert datetime fields directly
+                        datetime_fields = {'created_at', 'updated_at', 'expires_at', 'renewed_at', 'scheduled_time', 'sent_at'}
+                        for field in datetime_fields:
+                            if field in record_data and record_data[field] and isinstance(record_data[field], str):
+                                try:
+                                    # Try different datetime formats
+                                    if 'T' in record_data[field]:
+                                        record_data[field] = datetime.fromisoformat(record_data[field].replace('Z', '+00:00'))
+                                    else:
+                                        record_data[field] = datetime.strptime(record_data[field], '%Y-%m-%d %H:%M:%S.%f')
+                                except (ValueError, TypeError) as dt_error:
+                                    logger.warning(f"Failed to parse datetime {record_data[field]} for field {field}: {dt_error}")
+                                    record_data[field] = None
+                        
                         # Safe data type conversion with error handling
                         try:
                             # Skip conversion for critical string fields that should remain as-is
@@ -1919,18 +1933,6 @@ class AdminHandlers:
                                             record_data[key] = value.lower() in ('true', '1', 'yes', 'on')
                                         else:
                                             record_data[key] = bool(value)
-                                    # Convert datetime strings
-                                    elif column.type.python_type == datetime:
-                                        if value and isinstance(value, str):
-                                            try:
-                                                # Try different datetime formats
-                                                if 'T' in value:
-                                                    record_data[key] = datetime.fromisoformat(value.replace('Z', '+00:00'))
-                                                else:
-                                                    record_data[key] = datetime.strptime(value, '%Y-%m-%d %H:%M:%S.%f')
-                                            except (ValueError, TypeError) as dt_error:
-                                                logger.warning(f"Failed to parse datetime {value}: {dt_error}")
-                                                record_data[key] = None
                         except Exception as conv_error:
                             logger.warning(f"Data conversion failed for {model_class.__name__}: {conv_error}")
                             # Continue with original data if conversion fails
