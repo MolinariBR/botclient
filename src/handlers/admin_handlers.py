@@ -24,6 +24,14 @@ class AdminHandlers:
         self.telegram = telegram_service
         self.logging = logging_service
 
+        from telegram import Update
+        from telegram.ext import ContextTypes
+
+    # Handler para /meuid
+    async def meuid_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        await update.message.reply_text(f"Seu telegram_id é: {user_id}")
+
         # Apply logging decorators to admin handlers
         self.add_handler = LoggingService.create_admin_action_decorator(logging_service, "add_admin")(self.add_handler)
         self.register_group_handler = LoggingService.create_admin_action_decorator(logging_service, "register_group")(self.register_group_handler)
