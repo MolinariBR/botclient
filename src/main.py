@@ -8,6 +8,8 @@ import sys
 import os
 import asyncio
 import traceback
+import telegram
+import httpx
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import os
@@ -329,22 +331,67 @@ async def run_bot(application):
                 except Exception as e:
                     logging.debug(f"Could not delete webhook: {e}")
 
-                # Start polling with error handling and optimized settings for Square Cloud
+                # Start polling with ROBUST error handling for Square Cloud network issues
                 try:
-                    print("[DEBUG] Antes do async with application")
-                    async with application:
-                        print("[DEBUG] Dentro do async with application, antes do start")
-                        await application.start()
-                        print("[DEBUG] Após application.start() - polling iniciado")
-                        logging.info("✅ Bot started successfully with polling!")
+                    logging.info("Starting ROBUST polling mode with network error recovery...")
 
-                        # Keep the bot running with periodic health checks
-                        while True:
-                            print("[DEBUG] Loop principal do bot rodando...")
+                    # Custom polling implementation with better error handling
+                    await application.initialize()
+                    await application.start()
+                    logging.info("✅ Bot started successfully with robust polling!")
+
+                    # Custom polling loop with error recovery
+                    consecutive_errors = 0
+                    max_consecutive_errors = 10
+                    base_delay = 1.0
+                    max_delay = 60.0
+
+                    while True:
+                        try:
+                            # Process updates with timeout
+                            async with asyncio.timeout(30):  # 30 second timeout for get_updates
+                                updates = await application.bot.get_updates(
+                                    timeout=25,  # Shorter than our timeout
+                                    allowed_updates=["message", "callback_query", "chat_member"]
+                                )
+
+                            # Process updates if any
+                            if updates:
+                                logging.info(f"📨 Received {len(updates)} updates")
+                                for update in updates:
+                                    await application.process_update(update)
+                                consecutive_errors = 0  # Reset error counter on success
+
+                            # Small delay between polling cycles
+                            await asyncio.sleep(0.1)
+
+                        except asyncio.TimeoutError:
+                            # Timeout is normal, just continue
+                            logging.debug("Polling timeout (normal)")
+                            consecutive_errors = 0
+                            await asyncio.sleep(0.1)
+
+                        except (telegram.error.NetworkError, httpx.ReadError, httpx.ConnectError) as network_error:
+                            consecutive_errors += 1
+                            delay = min(base_delay * (2 ** consecutive_errors), max_delay)
+
+                            logging.warning(f"🌐 Network error #{consecutive_errors}: {network_error}")
+                            logging.warning(f"   Retrying in {delay:.1f} seconds...")
+
+                            if consecutive_errors >= max_consecutive_errors:
+                                logging.error(f"Too many consecutive network errors ({consecutive_errors}). Restarting bot...")
+                                raise network_error
+
+                            await asyncio.sleep(delay)
+
+                        except Exception as update_error:
+                            logging.error(f"❌ Update processing error: {update_error}")
+                            logging.error(f"   Error type: {type(update_error)}")
+                            # Continue processing other updates
                             await asyncio.sleep(1)
 
                 except Exception as polling_error:
-                    logging.error(f"Polling error: {polling_error}")
+                    logging.error(f"❌ Polling setup error: {polling_error}")
                     raise
 
         except Exception as e:
