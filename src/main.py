@@ -46,8 +46,6 @@ logging.info(f'TOKEN carregado: {bool(token)}')
 logging.info(f'DATABASE_URL: {getattr(Config, "DATABASE_URL", None)}')
 
 # Inicialização dos serviços
-
-# Inicialização dos serviços
 pixgo_service = PixGoService(Config.PIXGO_API_KEY, Config.PIXGO_BASE_URL)
 usdt_service = USDTService(Config.USDT_WALLET_ADDRESS)
 telegram_service = TelegramService(Config.TELEGRAM_TOKEN)
@@ -60,61 +58,13 @@ engine = create_engine(Config.DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 db = SessionLocal()
 
-
 # Inicialização dos handlers de usuário e admin
 user_handlers = UserHandlers(db, pixgo_service, usdt_service)
 admin_handlers = AdminHandlers(db, telegram_service, logging_service)
 logging.info('UserHandlers e AdminHandlers inicializados.')
 
-# Verify handler exists
-if hasattr(admin_handlers, 'group_id_handler'):
-    logging.info('✅ group_id_handler method exists in admin_handlers')
-else:
-    logging.error('❌ group_id_handler method NOT found in admin_handlers')
-
-
-# Handler original de /start
-async def start(update, context):
-    await user_handlers.start_handler(update, context)
-
-app = Application.builder().token(token).build()
-app.add_handler(CommandHandler('start', start))
-
-
-
-
-app = Application.builder().token(token).build()
-app.add_handler(CommandHandler('start', start))
-app.add_handler(CommandHandler('help', user_handlers.help_handler))
-app.add_handler(CommandHandler('status', user_handlers.status_handler))
-app.add_handler(CommandHandler('pay', user_handlers.pay_handler))
-app.add_handler(CommandHandler('renew', user_handlers.renew_handler))
-# Handlers de admin
-app.add_handler(CommandHandler('add', admin_handlers.add_handler))
-app.add_handler(CommandHandler('kick', admin_handlers.kick_handler))
-app.add_handler(CommandHandler('ban', admin_handlers.ban_handler))
-app.add_handler(CommandHandler('unban', admin_handlers.unban_handler))
-app.add_handler(CommandHandler('mute', admin_handlers.mute_handler))
-app.add_handler(CommandHandler('unmute', admin_handlers.unmute_handler))
-app.add_handler(CommandHandler('warn', admin_handlers.warn_handler))
-app.add_handler(CommandHandler('resetwarn', admin_handlers.resetwarn_handler))
-app.add_handler(CommandHandler('setprice', admin_handlers.setprice_handler))
-app.add_handler(CommandHandler('settime', admin_handlers.settime_handler))
-app.add_handler(CommandHandler('setwallet', admin_handlers.setwallet_handler))
-app.add_handler(CommandHandler('rules', admin_handlers.rules_handler))
-app.add_handler(CommandHandler('welcome', admin_handlers.welcome_handler))
-app.add_handler(CommandHandler('schedule', admin_handlers.schedule_handler))
-app.add_handler(CommandHandler('stats', admin_handlers.stats_handler))
-app.add_handler(CommandHandler('logs', admin_handlers.logs_handler))
-app.add_handler(CommandHandler('admins', admin_handlers.admins_handler))
-app.add_handler(CommandHandler('settings', admin_handlers.settings_handler))
-app.add_handler(CommandHandler('backup', admin_handlers.backup_handler))
-app.add_handler(CommandHandler('restore', admin_handlers.restore_handler))
-app.add_handler(CommandHandler('restore_quick', admin_handlers.restore_handler))
-logging.info('Todos os handlers de usuário e admin ativados.')
-
-print('Bot main.py rodando com todos os handlers. Teste comandos de usuário e admin no Telegram.')
-app.run_polling()
+# REMOVIDO: Código duplicado que estava causando conflitos
+# O bot agora usa apenas a função main() que chama setup_handlers()
 
 
 def setup_handlers(application, user_handlers, admin_handlers, mute_service):
@@ -172,38 +122,10 @@ def setup_handlers(application, user_handlers, admin_handlers, mute_service):
 
 
     # Add message logger FIRST (highest priority) to catch ALL messages
-    # application.add_handler(MessageHandler(filters.ALL, ultimate_catch_all), group=999)  # Very low priority - DISABLED
-    # logging.info("✅ Ultimate catch-all handler added")
+    application.add_handler(MessageHandler(filters.ALL, message_logger), group=0)  # ENABLED
+    logging.info("✅ Message logger handler added (UNIVERSAL) - should log ALL messages")
 
-    # Add SIMPLE test command that ALWAYS responds
-    async def simple_test(update, context):
-        try:
-            if update.message and update.message.text:
-                text = update.message.text
-                logging.info(f"🧪 SIMPLE TEST: Received '{text}'")
-                # Respond to ANY message containing "simple"
-                if "simple" in text.lower():
-                    await update.message.reply_text("🧪 Simple test working!")
-                    logging.info("🧪 Simple test response sent")
-        except Exception as e:
-            logging.error(f"🧪 SIMPLE TEST ERROR: {e}")
-
-    application.add_handler(MessageHandler(filters.TEXT, simple_test), group=-1)
-    logging.info("✅ Simple test handler added")
-
-    # Add SIMPLE COMMAND that should ALWAYS work
-    async def simple_command(update, context):
-        try:
-            logging.info("🎯 SIMPLE COMMAND: Called!")
-            await update.message.reply_text("🎯 Simple command working!")
-            logging.info("🎯 Simple command response sent")
-        except Exception as e:
-            logging.error(f"🎯 SIMPLE COMMAND ERROR: {e}")
-
-    application.add_handler(CommandHandler("simple", simple_command), group=-15)
-    logging.info("✅ Simple command handler added")
-
-    # Add bot permissions checker
+    # Add chat member handler to track bot status in groups
     application.add_handler(ChatMemberHandler(chat_member_handler, ChatMemberHandler.MY_CHAT_MEMBER))
     logging.info("✅ Chat member handler added")
 
