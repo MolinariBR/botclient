@@ -262,6 +262,58 @@ def setup_handlers(application, user_handlers, admin_handlers, mute_service):
     application.add_handler(MessageHandler(filters.ALL & filters.ChatType.GROUPS, catch_all_groups), group=100)  # Lowest priority
     logging.info("✅ Catch-all group handler added")
 
+    # Add ULTIMATE catch-all handler for ANY message anywhere
+    async def ultimate_catch_all(update, context):
+        try:
+            if update.message:
+                chat = update.message.chat
+                text = update.message.text or "[non-text]"
+                logging.info(f"🎯 ULTIMATE CATCH-ALL: '{text}' in {chat.type} chat {chat.id}")
+                # Only respond in private to avoid spam
+                if chat.type == "private" and text.startswith("ULTIMATE_TEST"):
+                    await update.message.reply_text("🎯 Ultimate catch-all working!")
+        except Exception as e:
+            logging.error(f"🎯 ULTIMATE CATCH-ALL ERROR: {e}")
+
+    application.add_handler(MessageHandler(filters.ALL, ultimate_catch_all), group=999)  # Very low priority
+    logging.info("✅ Ultimate catch-all handler added")
+
+    # Add bot permissions checker
+    async def check_bot_permissions(update, context):
+        try:
+            message = update.message
+            if message and message.text and message.text.upper() == "/CHECK_PERMS":
+                chat = message.chat
+                bot = await context.bot.get_me()
+                logging.info(f"🔍 Checking bot permissions in chat {chat.id} ({chat.type})")
+
+                try:
+                    # Get bot member info
+                    bot_member = await context.bot.get_chat_member(chat.id, bot.id)
+                    perms = bot_member.privileges or bot_member
+
+                    perms_text = f"""
+🤖 **Bot Permissions in {chat.title or 'this chat'}:**
+
+Status: {bot_member.status}
+Can read messages: {'✅' if getattr(perms, 'can_read_messages', True) else '❌'}
+Can send messages: {'✅' if getattr(perms, 'can_send_messages', True) else '❌'}
+Can send media: {'✅' if getattr(perms, 'can_send_media_messages', True) else '❌'}
+Is admin: {'✅' if bot_member.status == 'administrator' else '❌'}
+"""
+                    await message.reply_text(perms_text, parse_mode="Markdown")
+                    logging.info(f"🔍 Bot permissions checked successfully")
+
+                except Exception as perm_error:
+                    logging.error(f"🔍 Error checking permissions: {perm_error}")
+                    await message.reply_text(f"❌ Erro ao verificar permissões: {str(perm_error)}")
+
+        except Exception as e:
+            logging.error(f"🔍 PERMISSIONS CHECK ERROR: {e}")
+
+    application.add_handler(MessageHandler(filters.COMMAND & filters.Regex(r'^/check_perms$'), check_bot_permissions), group=-20)
+    logging.info("✅ Bot permissions checker added")
+
     # Add admin command handlers
     application.add_handler(CommandHandler("add", admin_handlers.add_handler))
     application.add_handler(CommandHandler("kick", admin_handlers.kick_handler))
