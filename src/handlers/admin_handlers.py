@@ -1915,13 +1915,21 @@ class AdminHandlers:
                                         if isinstance(value, int):
                                             record_data[key] = bool(value)
                                         elif isinstance(value, str):
-                                            record_data[key] = value.lower() in ('true', '1', 'yes')
+                                            # Handle various string representations of boolean
+                                            record_data[key] = value.lower() in ('true', '1', 'yes', 'on')
+                                        else:
+                                            record_data[key] = bool(value)
                                     # Convert datetime strings
                                     elif column.type.python_type == datetime:
                                         if value and isinstance(value, str):
                                             try:
-                                                record_data[key] = datetime.fromisoformat(value)
-                                            except (ValueError, TypeError):
+                                                # Try different datetime formats
+                                                if 'T' in value:
+                                                    record_data[key] = datetime.fromisoformat(value.replace('Z', '+00:00'))
+                                                else:
+                                                    record_data[key] = datetime.strptime(value, '%Y-%m-%d %H:%M:%S.%f')
+                                            except (ValueError, TypeError) as dt_error:
+                                                logger.warning(f"Failed to parse datetime {value}: {dt_error}")
                                                 record_data[key] = None
                         except Exception as conv_error:
                             logger.warning(f"Data conversion failed for {model_class.__name__}: {conv_error}")
