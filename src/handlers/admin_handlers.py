@@ -80,15 +80,12 @@ class AdminHandlers:
         # Find user by username
         db_user = self.db.query(User).filter_by(username=username).first()
         if not db_user:
-            # Create user if doesn't exist
-            db_user = User(
-                telegram_id=None,  # Will be set when user actually interacts with bot
-                username=username,
-                first_name=username,  # Placeholder
-                last_name=None
-            )
-            self.db.add(db_user)
-            self.db.commit()
+            # Cannot create user without telegram_id
+            await message.reply_text(f"❌ Usuário @{username} não encontrado no banco de dados.\n\n"
+                                   f"📝 O usuário precisa interagir com o bot primeiro (enviar uma mensagem) "
+                                   f"para que seja registrado automaticamente.\n\n"
+                                   f"🔄 Peça para o usuário @{username} enviar qualquer mensagem no bot.")
+            return
 
         # Handle first admin setup differently
         if total_admins == 0:
