@@ -5,12 +5,12 @@ from sqlalchemy.orm import Session
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
-from ..models.payment import Payment
-from ..models.user import User
-from ..services.pixgo_service import PixGoService
-from ..services.usdt_service import USDTService
-from ..utils.config import Config
-from ..utils.performance import measure_performance, measure_block
+from models.payment import Payment
+from models.user import User
+from services.pixgo_service import PixGoService
+from services.usdt_service import USDTService
+from utils.config import Config
+from utils.performance import measure_performance, measure_block
 
 logger = logging.getLogger(__name__)
 
@@ -341,7 +341,7 @@ Aguarde as instruções de pagamento...""",
             return
 
         # Check if user is admin
-        from ..models.admin import Admin
+        from models.admin import Admin
         is_admin = self.db.query(Admin).filter(Admin.telegram_id == user.id).first() is not None
 
         logger.info(f"📖 HELP COMMAND: User {user.username or user.first_name} is_admin={is_admin}")
@@ -599,7 +599,7 @@ Este link permite que novos usuários se juntem ao grupo VIP.
             return
 
         # Check if user is admin
-        from ..models.admin import Admin
+        from models.admin import Admin
         is_admin = self.db.query(Admin).filter(Admin.telegram_id == user.id).first() is not None
 
         # Determine help content based on chat type

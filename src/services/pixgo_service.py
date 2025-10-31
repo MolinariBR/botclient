@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 # Import performance monitoring
 try:
-    from ..utils.performance import measure_performance
+    from utils.performance import measure_performance
 except ImportError:
     # Fallback if performance monitoring is not available
     def measure_performance(*args, **kwargs):
