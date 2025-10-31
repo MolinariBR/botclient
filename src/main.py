@@ -63,6 +63,12 @@ user_handlers = UserHandlers(db, pixgo_service, usdt_service)
 admin_handlers = AdminHandlers(db, telegram_service, logging_service)
 logging.info('UserHandlers e AdminHandlers inicializados.')
 
+# Verify handler exists
+if hasattr(admin_handlers, 'group_id_handler'):
+    logging.info('✅ group_id_handler method exists in admin_handlers')
+else:
+    logging.error('❌ group_id_handler method NOT found in admin_handlers')
+
 
 # Handler original de /start
 async def start(update, context):
@@ -203,7 +209,7 @@ def setup_handlers(application, user_handlers, admin_handlers, mute_service):
     application.add_handler(CommandHandler("status", debug_status_handler))
     application.add_handler(CommandHandler("pay", user_handlers.pay_handler))
     application.add_handler(CommandHandler("renew", user_handlers.renew_handler))
-    application.add_handler(CommandHandler("group_id", admin_handlers.group_id_handler), group=-1)
+    application.add_handler(CommandHandler("group_id", admin_handlers.group_id_handler), group=-10)
     logging.info("✅ User command handlers added")
 
     # Add test handler for debugging
@@ -216,7 +222,7 @@ def setup_handlers(application, user_handlers, admin_handlers, mute_service):
         except Exception as e:
             logging.error(f"🧪 TEST GROUP HANDLER ERROR: {e}")
 
-    application.add_handler(CommandHandler("test_group", test_group_handler), group=-2)
+    application.add_handler(CommandHandler("test_group", test_group_handler), group=-10)
     logging.info("✅ Test group handler added")
 
     # Add admin command handlers
