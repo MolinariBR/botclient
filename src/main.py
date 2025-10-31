@@ -130,13 +130,13 @@ def setup_handlers(application, user_handlers, admin_handlers, mute_service):
 
                 logging.info(f"📨 MESSAGE RECEIVED: '{text}' from {user.username or user.first_name} in {chat.type} chat {chat.id}")
 
-                # Send immediate confirmation - TEMPORARILY ENABLED for testing
-                try:
-                    if text.startswith('/'):  # Only respond to commands for testing
-                        await message.reply_text(f"📨 Comando recebido: {text}")
-                        logging.info("✅ Command confirmation sent")
-                except Exception as reply_error:
-                    logging.error(f"❌ Could not send confirmation: {reply_error}")
+                # DISABLED: Send immediate confirmation - was interfering with command handlers
+                # try:
+                #     if text.startswith('/'):  # Only respond to commands for testing
+                #         await message.reply_text(f"📨 Comando recebido: {text}")
+                #         logging.info("✅ Command confirmation sent")
+                # except Exception as reply_error:
+                #     logging.error(f"❌ Could not send confirmation: {reply_error}")
 
         except Exception as e:
             logging.error(f"❌ Error in message logger: {e}")
