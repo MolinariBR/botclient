@@ -131,37 +131,9 @@ def setup_handlers(application, user_handlers, admin_handlers, mute_service):
 
     # Add user command handlers
     logging.info("🔧 Adding user command handlers...")
-    async def debug_start_handler(update, context):
-        try:
-            logging.info("🚀 DEBUG_START_HANDLER: Called!")
-            result = await user_handlers.start_handler(update, context)
-            logging.info("✅ DEBUG: start_handler completed")
-            return result
-        except Exception as e:
-            logging.error(f"❌ DEBUG: start_handler failed: {e}")
-            raise
-
-    async def debug_help_handler(update, context):
-        try:
-            result = await user_handlers.help_handler(update, context)
-            logging.info("✅ DEBUG: help_handler completed")
-            return result
-        except Exception as e:
-            logging.error(f"❌ DEBUG: help_handler failed: {e}")
-            raise
-
-    async def debug_status_handler(update, context):
-        try:
-            result = await user_handlers.status_handler(update, context)
-            logging.info("✅ DEBUG: status_handler completed")
-            return result
-        except Exception as e:
-            logging.error(f"❌ DEBUG: status_handler failed: {e}")
-            raise
-
-    application.add_handler(CommandHandler("start", debug_start_handler))
-    application.add_handler(CommandHandler("help", debug_help_handler))
-    application.add_handler(CommandHandler("status", debug_status_handler))
+    application.add_handler(CommandHandler("start", user_handlers.start_handler))
+    application.add_handler(CommandHandler("help", user_handlers.help_handler))
+    application.add_handler(CommandHandler("status", user_handlers.status_handler))
     application.add_handler(CommandHandler("pay", user_handlers.pay_handler))
     application.add_handler(CommandHandler("renew", user_handlers.renew_handler))
     application.add_handler(CommandHandler("group_id", admin_handlers.group_id_handler), group=-10)
@@ -580,65 +552,6 @@ def main():
 
             except Exception as e:
                 logging.error(f"Error in chat member handler: {e}")
-
-        # Add message logger FIRST (highest priority) to catch ALL messages
-        # application.add_handler(MessageHandler(filters.ALL, message_logger), group=0)  # DISABLED
-        logging.info("✅ Message logger handler added")
-
-        # Add chat member handler to track bot status in groups
-        application.add_handler(ChatMemberHandler(chat_member_handler, ChatMemberHandler.MY_CHAT_MEMBER))
-        logging.info("✅ Chat member handler added")
-
-        # Add user command handlers
-        application.add_handler(CommandHandler("start", user_handlers.start_handler))
-        application.add_handler(CommandHandler("pay", user_handlers.pay_handler))
-        application.add_handler(CommandHandler("status", user_handlers.status_handler))
-        application.add_handler(CommandHandler("renew", user_handlers.renew_handler))
-        application.add_handler(CommandHandler("help", user_handlers.help_handler))
-        application.add_handler(CommandHandler("invite", user_handlers.invite_handler))
-        application.add_handler(CommandHandler("cancel", user_handlers.cancel_handler))
-        application.add_handler(CommandHandler("support", user_handlers.support_handler))
-        application.add_handler(CommandHandler("info", user_handlers.info_handler))
-        logging.info("✅ User command handlers added")
-
-        # Payment callbacks
-        application.add_handler(CallbackQueryHandler(user_handlers.payment_callback_handler, pattern="^pay_"))
-        logging.info("✅ Payment callback handler added")
-
-        # Admin commands
-        application.add_handler(CommandHandler("add", admin_handlers.add_handler))
-        application.add_handler(CommandHandler("addadmin", admin_handlers.addadmin_handler))
-        # application.add_handler(CommandHandler("register_group", admin_handlers.register_group_handler))  # Moved to high priority debug handler above
-        # application.add_handler(CommandHandler("group_id", admin_handlers.group_id_handler), group=-1)  # Moved to user handlers
-        logging.info("✅ group_id command handler added")
-        application.add_handler(CommandHandler("kick", admin_handlers.kick_handler))
-        application.add_handler(CommandHandler("ban", admin_handlers.ban_handler))
-        application.add_handler(CommandHandler("mute", admin_handlers.mute_handler))
-        application.add_handler(CommandHandler("unban", admin_handlers.unban_handler))
-        application.add_handler(CommandHandler("unmute", admin_handlers.unmute_handler))
-        application.add_handler(CommandHandler("userinfo", admin_handlers.userinfo_handler))
-        application.add_handler(CommandHandler("pending", admin_handlers.pending_handler))
-        application.add_handler(CommandHandler("warn", admin_handlers.warn_handler))
-        application.add_handler(CommandHandler("resetwarn", admin_handlers.resetwarn_handler))
-        application.add_handler(CommandHandler("expire", admin_handlers.expire_handler))
-        application.add_handler(CommandHandler("sendto", admin_handlers.sendto_handler))
-        application.add_handler(
-            CommandHandler("broadcast", admin_handlers.broadcast_handler)
-        )
-        application.add_handler(CommandHandler("setprice", admin_handlers.setprice_handler))
-        application.add_handler(CommandHandler("settime", admin_handlers.settime_handler))
-        application.add_handler(CommandHandler("setwallet", admin_handlers.setwallet_handler))
-        application.add_handler(CommandHandler("rules", admin_handlers.rules_handler))
-        application.add_handler(CommandHandler("welcome", admin_handlers.welcome_handler))
-        application.add_handler(CommandHandler("schedule", admin_handlers.schedule_handler))
-        application.add_handler(CommandHandler("stats", admin_handlers.stats_handler))
-        logging.info("✅ Admin command handlers added")
-    application.add_handler(CommandHandler("logs", admin_handlers.logs_handler))
-    application.add_handler(CommandHandler("admins", admin_handlers.admins_handler))
-    application.add_handler(CommandHandler("settings", admin_handlers.settings_handler))
-    application.add_handler(CommandHandler("backup", admin_handlers.backup_handler))
-    application.add_handler(CommandHandler("restore", admin_handlers.restore_handler))
-    application.add_handler(CommandHandler("restore_quick", admin_handlers.restore_handler))
 
     logging.info("[DEBUG] Todos os handlers foram adicionados com sucesso.")
     logging.info("✅ Handler setup completed successfully")
