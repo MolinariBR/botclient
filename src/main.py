@@ -110,6 +110,8 @@ app.run_polling()
 
 def setup_handlers(application, user_handlers, admin_handlers, mute_service):
     """Setup all bot handlers"""
+    logging.info("🔧 Starting handler setup...")
+
     # Add handlers for different chat types to debug
     async def message_logger(update, context):
         """Log all incoming messages for debugging"""
@@ -122,12 +124,12 @@ def setup_handlers(application, user_handlers, admin_handlers, mute_service):
 
                 logging.info(f"📨 MESSAGE RECEIVED: '{text}' from {user.username or user.first_name} in {chat.type} chat {chat.id}")
 
-                # Send immediate confirmation
-                try:
-                    await message.reply_text(f"📨 Mensagem recebida: {text[:50]}...")
-                    logging.info("✅ Confirmation sent")
-                except Exception as reply_error:
-                    logging.error(f"❌ Could not send confirmation: {reply_error}")
+                # Send immediate confirmation - DISABLED for testing
+                # try:
+                #     await message.reply_text(f"📨 Mensagem recebida: {text[:50]}...")
+                #     logging.info("✅ Confirmation sent")
+                # except Exception as reply_error:
+                #     logging.error(f"❌ Could not send confirmation: {reply_error}")
 
         except Exception as e:
             logging.error(f"❌ Error in message logger: {e}")
@@ -535,6 +537,7 @@ def main():
         application.add_handler(CommandHandler("addadmin", admin_handlers.addadmin_handler))
         application.add_handler(CommandHandler("register_group", admin_handlers.register_group_handler))
         application.add_handler(CommandHandler("group_id", admin_handlers.group_id_handler))
+        logging.info("✅ group_id command handler added")
         application.add_handler(CommandHandler("kick", admin_handlers.kick_handler))
         application.add_handler(CommandHandler("ban", admin_handlers.ban_handler))
         application.add_handler(CommandHandler("mute", admin_handlers.mute_handler))
@@ -563,6 +566,9 @@ def main():
     application.add_handler(CommandHandler("backup", admin_handlers.backup_handler))
     application.add_handler(CommandHandler("restore", admin_handlers.restore_handler))
     application.add_handler(CommandHandler("restore_quick", admin_handlers.restore_handler))
+
+    logging.info("[DEBUG] Todos os handlers foram adicionados com sucesso.")
+    logging.info("✅ Handler setup completed successfully")
 
     # Start the bot
     logging.info("Starting bot...")
