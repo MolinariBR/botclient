@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from telegram import Update
 from telegram.ext import ContextTypes
+from telegram import Message
 
 from src.models.admin import Admin
 from src.models.group import Group, GroupMembership
@@ -1679,6 +1680,15 @@ class AdminHandlers:
             await message.reply_text("❌ Comandos administrativos só podem ser executados no chat privado com o bot.")
             return
 
+        # Check if this is a confirmation message
+        if message.text and message.text.strip().upper() == "CONFIRMAR":
+            if 'pending_restore' in context.user_data:
+                await self._execute_restore(message, context)
+                return
+            else:
+                await message.reply_text("❌ Nenhuma restauração pendente para confirmar.")
+                return
+
         # Check if message has a document
         if not message.document:
             await message.reply_text("Envie um arquivo de backup junto com o comando /restore")
@@ -1705,12 +1715,33 @@ class AdminHandlers:
                 await message.reply_text("❌ Arquivo de backup inválido ou corrompido.")
                 return
 
-            # Confirm restoration (this is a destructive operation)
-            await message.reply_text("⚠️ **ATENÇÃO:** Esta operação irá substituir todos os dados atuais!\n\nDigite 'CONFIRMAR' em maiúsculo para prosseguir.")
+            # Store backup data in context for confirmation
+            context.user_data['pending_restore'] = backup_data
 
-            # For now, we'll implement the restore logic
-            # Note: In a real implementation, you'd want user confirmation
-            # But for this exercise, we'll proceed with the restore
+            # Ask for confirmation
+            await message.reply_text(
+                "⚠️ **ATENÇÃO: OPERAÇÃO DESTRUTIVA!**\n\n"
+                "Esta operação irá **APAGAR TODOS OS DADOS ATUAIS** e restaurar do backup!\n\n"
+                f"📦 Backup de: {backup_data.get('backup_timestamp', 'N/A')}\n"
+                f"👨‍💼 Admins no backup: {len(backup_data['tables'].get('admins', []))}\n"
+                f"👥 Usuários no backup: {len(backup_data['tables'].get('users', []))}\n\n"
+                "Para confirmar, digite exatamente: **CONFIRMAR**"
+            )
+
+        except json.JSONDecodeError:
+            await message.reply_text("❌ Arquivo de backup inválido - erro ao ler JSON.")
+        except Exception as e:
+            logger.error(f"Failed to parse backup file: {e}")
+            await message.reply_text("❌ Erro ao processar arquivo de backup.")
+
+    async def _execute_restore(self, message: Message, context: ContextTypes.DEFAULT_TYPE):
+        """Execute the actual restore operation"""
+        try:
+            from datetime import datetime
+
+            # Get backup data from context
+            backup_data = context.user_data['pending_restore']
+            del context.user_data['pending_restore']  # Clear pending restore
 
             # Clear existing data (in reverse dependency order)
             self.db.query(ScheduledMessage).delete()
@@ -1768,8 +1799,6 @@ class AdminHandlers:
 
             await message.reply_text(result_text)
 
-        except json.JSONDecodeError:
-            await message.reply_text("❌ Arquivo de backup inválido - erro ao ler JSON.")
         except Exception as e:
             logger.error(f"Failed to restore backup: {e}")
             self.db.rollback()  # Rollback on error
