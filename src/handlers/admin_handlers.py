@@ -1893,18 +1893,42 @@ class AdminHandlers:
                     restored_counts[table_name] = 0
 
                     for record_data in records:
-                        # Convert ISO datetime strings back to datetime objects
-                        for key, value in record_data.items():
-                            column = getattr(model_class.__table__.columns, key, None)
-                            if column and hasattr(column.type, 'python_type'):
-                                if column.type.python_type == datetime:
-                                    if value and isinstance(value, str):
-                                        record_data[key] = datetime.fromisoformat(value)
+                        # Safe data type conversion with error handling
+                        try:
+                            for key, value in list(record_data.items()):
+                                # Handle null values
+                                if value == "null" or value is None:
+                                    record_data[key] = None
+                                    continue
 
-                        # Create new record
-                        new_record = model_class(**record_data)
-                        self.db.add(new_record)
-                        restored_counts[table_name] += 1
+                                column = getattr(model_class.__table__.columns, key, None)
+                                if column and hasattr(column.type, 'python_type'):
+                                    # Convert integers to booleans for boolean columns
+                                    if column.type.python_type == bool:
+                                        if isinstance(value, int):
+                                            record_data[key] = bool(value)
+                                        elif isinstance(value, str):
+                                            record_data[key] = value.lower() in ('true', '1', 'yes')
+                                    # Convert datetime strings
+                                    elif column.type.python_type == datetime:
+                                        if value and isinstance(value, str):
+                                            try:
+                                                record_data[key] = datetime.fromisoformat(value)
+                                            except (ValueError, TypeError):
+                                                record_data[key] = None
+                        except Exception as conv_error:
+                            logger.warning(f"Data conversion failed for {model_class.__name__}: {conv_error}")
+                            # Continue with original data if conversion fails
+
+                        # Create new record with error handling
+                        try:
+                            new_record = model_class(**record_data)
+                            self.db.add(new_record)
+                            restored_counts[table_name] += 1
+                        except Exception as record_error:
+                            logger.error(f"Failed to create {model_class.__name__} record: {record_error}")
+                            logger.error(f"Record data: {record_data}")
+                            # Continue with next record instead of failing completely
 
             self.db.commit()
 
