@@ -1895,10 +1895,17 @@ class AdminHandlers:
                     for record_data in records:
                         # Safe data type conversion with error handling
                         try:
+                            # Skip conversion for critical string fields that should remain as-is
+                            critical_string_fields = {'telegram_id', 'username', 'first_name', 'last_name', 'status_assinatura'}
+                            
                             for key, value in list(record_data.items()):
                                 # Handle null values
                                 if value == "null" or value is None:
                                     record_data[key] = None
+                                    continue
+
+                                # Skip conversion for critical string fields
+                                if key in critical_string_fields:
                                     continue
 
                                 column = getattr(model_class.__table__.columns, key, None)
