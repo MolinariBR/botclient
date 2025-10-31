@@ -46,6 +46,3 @@ ENV_VARS=
   LOG_LEVEL="INFO"
   LOG_FILE="logs/bot.log"
   ENVIRONMENT="production"
-
-
-  
