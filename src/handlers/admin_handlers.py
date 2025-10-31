@@ -1893,38 +1893,18 @@ class AdminHandlers:
                     restored_counts[table_name] = 0
 
                     for record_data in records:
-                        # Convert data types appropriately for quick restore
-                        for key, value in list(record_data.items()):
-                            # Handle null values
-                            if value == "null" or value is None:
-                                record_data[key] = None
-                                continue
-
+                        # Convert ISO datetime strings back to datetime objects
+                        for key, value in record_data.items():
                             column = getattr(model_class.__table__.columns, key, None)
-                            if column:
-                                # Convert integers to booleans for boolean columns
-                                if hasattr(column.type, 'python_type') and column.type.python_type == bool:
-                                    if isinstance(value, int):
-                                        record_data[key] = bool(value)
-                                    elif isinstance(value, str):
-                                        record_data[key] = value.lower() in ('true', '1', 'yes')
-                                # Convert datetime strings
-                                elif hasattr(column.type, 'python_type') and column.type.python_type == datetime:
+                            if column and hasattr(column.type, 'python_type'):
+                                if column.type.python_type == datetime:
                                     if value and isinstance(value, str):
-                                        try:
-                                            record_data[key] = datetime.fromisoformat(value)
-                                        except ValueError:
-                                            record_data[key] = None
+                                        record_data[key] = datetime.fromisoformat(value)
 
                         # Create new record
-                        try:
-                            new_record = model_class(**record_data)
-                            self.db.add(new_record)
-                            restored_counts[table_name] += 1
-                        except Exception as record_error:
-                            logger.error(f"Failed to create {model_class.__name__} record: {record_error}")
-                            logger.error(f"Record data: {record_data}")
-                            # Continue with next record instead of failing completely
+                        new_record = model_class(**record_data)
+                        self.db.add(new_record)
+                        restored_counts[table_name] += 1
 
             self.db.commit()
 
