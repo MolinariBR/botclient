@@ -1,5 +1,6 @@
 import json
 import logging
+import traceback
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
@@ -252,23 +253,34 @@ class AdminHandlers:
 
     async def group_id_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /group_id command - show current group ID"""
-        user = update.effective_user
-        message = update.message
-        chat = update.effective_chat
+        try:
+            logger.info("🚨 GROUP_ID_HANDLER: Function called!")
 
-        logger.info(f"group_id_handler called by user {user.id if user else 'None'} in chat {chat.id if chat else 'None'} (type: {chat.type if chat else 'None'})")
+            user = update.effective_user
+            message = update.message
+            chat = update.effective_chat
 
-        if not user or not message or not chat:
-            logger.warning("group_id_handler: Missing user, message or chat")
-            return
+            logger.info(f"group_id_handler called by user {user.id if user else 'None'} in chat {chat.id if chat else 'None'} (type: {chat.type if chat else 'None'})")
 
-        # This command can be used in groups to get the ID (no admin check required)
-        if chat.type == "private":
-            await message.reply_text("Este comando deve ser usado em um grupo.")
-            return
+            if not user or not message or not chat:
+                logger.warning("group_id_handler: Missing user, message or chat")
+                return
 
-        await message.reply_text(f"ID do grupo: {chat.id}")
-        logger.info(f"group_id_handler: Successfully returned group ID {chat.id} for user {user.id}")
+            # This command can be used in groups to get the ID (no admin check required)
+            if chat.type == "private":
+                await message.reply_text("Este comando deve ser usado em um grupo.")
+                return
+
+            await message.reply_text(f"ID do grupo: {chat.id}")
+            logger.info(f"group_id_handler: Successfully returned group ID {chat.id} for user {user.id}")
+        except Exception as e:
+            logger.error(f"🚨 GROUP_ID_HANDLER ERROR: {e}")
+            logger.error(f"🚨 GROUP_ID_HANDLER TRACEBACK: {traceback.format_exc()}")
+            try:
+                if update.message:
+                    await update.message.reply_text(f"Erro interno: {str(e)}")
+            except:
+                pass
 
     async def kick_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /kick command"""
