@@ -1845,8 +1845,11 @@ class AdminHandlers:
             # Execute restore directly
             from datetime import datetime
 
-            # Clear existing data using raw SQL to avoid constraint issues
+            # Clear existing data using raw SQL with proper error handling
             from sqlalchemy import text
+
+            # Disable foreign key checks temporarily
+            self.db.execute(text("PRAGMA foreign_keys = OFF"))
 
             tables_to_clear = [
                 'scheduled_messages',
@@ -1862,13 +1865,13 @@ class AdminHandlers:
             for table_name in tables_to_clear:
                 try:
                     self.db.execute(text(f"DELETE FROM {table_name}"))
+                    logger.info(f"Successfully deleted from {table_name}")
                 except Exception as e:
                     logger.warning(f"Could not delete from {table_name}: {e}")
-                    # Try with CASCADE if supported
-                    try:
-                        self.db.execute(text(f"DELETE FROM {table_name} CASCADE"))
-                    except Exception as e2:
-                        logger.error(f"Failed to delete from {table_name} even with CASCADE: {e2}")
+
+            # Re-enable foreign keys
+            self.db.execute(text("PRAGMA foreign_keys = ON"))
+            self.db.commit()
 
             # Restore data
             table_restore_order = [
