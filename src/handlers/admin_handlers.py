@@ -1305,6 +1305,7 @@ class AdminHandlers:
         try:
             # Get all admins
             admins = self.db.query(Admin).all()
+            logger.info(f"Found {len(admins)} admins in database")
 
             if not admins:
                 await message.reply_text("👨‍💼 Nenhum administrador encontrado.")
@@ -1313,21 +1314,33 @@ class AdminHandlers:
             # Format admin list
             admins_text = f"👨‍💼 **Administradores do Sistema ({len(admins)})**\n\n"
 
-            for admin in admins:
+            for i, admin in enumerate(admins, 1):
+                logger.info(f"Processing admin {i}: telegram_id={admin.telegram_id}, username={admin.username}")
                 admin_id = admin.telegram_id
                 username = admin.username or "N/A"
                 first_name = admin.first_name or ""
                 last_name = admin.last_name or ""
-                full_name = f"{first_name} {last_name}".strip() or "N/A"
+                full_name = f"{first_name} {last_name}".strip()
+                if not full_name:
+                    full_name = "N/A"
                 permissions = admin.permissions or "basic"
                 created_at = admin.created_at.strftime("%Y-%m-%d") if admin.created_at else "N/A"
 
-                admins_text += f"🆔 **ID:** {admin_id}\n"
-                admins_text += f"👤 **Nome:** {full_name}\n"
-                admins_text += f"📱 **Username:** @{username}\n"
-                admins_text += f"🔐 **Permissões:** {permissions}\n"
-                admins_text += f"📅 **Desde:** {created_at}\n\n"
+                admin_block = f"🆔 **ID:** {admin_id}\n"
+                admin_block += f"👤 **Nome:** {full_name}\n"
+                admin_block += f"📱 **Username:** @{username}\n"
+                admin_block += f"🔐 **Permissões:** {permissions}\n"
+                admin_block += f"📅 **Desde:** {created_at}\n\n"
 
+                admins_text += admin_block
+                logger.info(f"Added admin {i} to response text")
+
+            # Check message length
+            if len(admins_text) > 4000:
+                logger.warning(f"Admin list message too long ({len(admins_text)} chars), truncating")
+                admins_text = admins_text[:3950] + "\n\n... (mensagem truncada)"
+
+            logger.info(f"Sending admin list with {len(admins)} admins")
             await message.reply_text(admins_text)
 
         except Exception as e:
