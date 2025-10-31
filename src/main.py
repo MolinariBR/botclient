@@ -7,6 +7,7 @@ from handlers.user_handlers import UserHandlers
 import sys
 import os
 import asyncio
+import traceback
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import os
@@ -170,15 +171,17 @@ def setup_handlers(application, user_handlers, admin_handlers, mute_service):
 
     # Add message logger FIRST (highest priority) to catch ALL messages
     application.add_handler(MessageHandler(filters.ALL, message_logger), group=0)  # ENABLED
-    logging.info("✅ Message logger handler added (UNIVERSAL)")
+    logging.info("✅ Message logger handler added (UNIVERSAL) - should log ALL messages")
 
     # Add chat member handler to track bot status in groups
     application.add_handler(ChatMemberHandler(chat_member_handler, ChatMemberHandler.MY_CHAT_MEMBER))
     logging.info("✅ Chat member handler added")
 
     # Add user command handlers
+    logging.info("🔧 Adding user command handlers...")
     async def debug_start_handler(update, context):
         try:
+            logging.info("🚀 DEBUG_START_HANDLER: Called!")
             result = await user_handlers.start_handler(update, context)
             logging.info("✅ DEBUG: start_handler completed")
             return result
@@ -215,12 +218,15 @@ def setup_handlers(application, user_handlers, admin_handlers, mute_service):
     # Add test handler for debugging
     async def test_group_handler(update, context):
         try:
+            logging.info("🧪 TEST_GROUP_HANDLER: Function called!")
             message = update.message
             if message and message.text:
                 logging.info(f"🧪 TEST GROUP HANDLER: Received '{message.text}'")
                 await message.reply_text(f"🧪 Teste: Recebi '{message.text}'")
+                logging.info("🧪 TEST GROUP HANDLER: Response sent successfully")
         except Exception as e:
             logging.error(f"🧪 TEST GROUP HANDLER ERROR: {e}")
+            logging.error(f"🧪 TEST GROUP HANDLER TRACEBACK: {traceback.format_exc()}")
 
     application.add_handler(CommandHandler("test_group", test_group_handler), group=-10)
     logging.info("✅ Test group handler added")
