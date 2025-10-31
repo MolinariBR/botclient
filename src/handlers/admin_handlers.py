@@ -256,13 +256,22 @@ class AdminHandlers:
         message = update.message
         chat = update.effective_chat
 
+        logger.info(f"group_id_handler called by user {user.id if user else 'None'} in chat {chat.id if chat else 'None'} (type: {chat.type if chat else 'None'})")
+
         if not user or not message or not chat:
+            logger.warning("group_id_handler: Missing user, message or chat")
             return
 
         # Check if user is admin
-        admin = self.db.query(Admin).filter_by(telegram_id=str(user.id)).first()
-        if not admin:
-            await message.reply_text("Acesso negado. Você não é um administrador.")
+        try:
+            admin = self.db.query(Admin).filter_by(telegram_id=str(user.id)).first()
+            logger.info(f"group_id_handler: Admin check for user {user.id}: {'Found' if admin else 'Not found'}")
+            if not admin:
+                await message.reply_text("Acesso negado. Você não é um administrador.")
+                return
+        except Exception as e:
+            logger.error(f"group_id_handler: Database error checking admin: {e}")
+            await message.reply_text("Erro interno do banco de dados.")
             return
 
         # This command can be used in groups to get the ID
