@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 
 # Verificar e parar instâncias existentes do bot
 echo "🔍 Verificando instâncias existentes do bot..."
-BOT_PROCESSES=$(pgrep -f "python -m src.main" || true)
+BOT_PROCESSES=$(pgrep -f "python main.py" || true)
 
 if [ ! -z "$BOT_PROCESSES" ]; then
     echo "⚠️  Encontradas instâncias do bot rodando (PIDs: $BOT_PROCESSES)"
@@ -24,6 +24,6 @@ fi
 echo "🐍 Ativando ambiente virtual..."
 source venv/bin/activate
 
-# Executar o bot como módulo para suportar imports relativos
+# Executar o bot a partir do diretório src
 echo "🚀 Iniciando bot..."
-python -m src.main
+cd src && python main.py
