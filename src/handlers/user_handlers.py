@@ -188,27 +188,48 @@ Expiração: {expiration_str}
         )
 
         if pix_payment:
-            qr_code = self.pixgo.get_qr_code(pix_payment["id"])
+            qr_code = pix_payment.get("qr_code")
+            if not qr_code:
+                await message.reply_text("❌ Erro ao gerar QR Code. Tente novamente.")
+                return
+                
             payment = Payment(
                 user_id=db_user.id,
-                pixgo_payment_id=pix_payment["id"],
+                pixgo_payment_id=pix_payment.get("payment_id", pix_payment.get("id", "unknown")),
                 amount=Config.SUBSCRIPTION_PRICE,
                 payment_method="pix",
             )
             self.db.add(payment)
             self.db.commit()
 
-            payment_message = f"""
-🔄 **Renovação de Assinatura**
+            qr_image_url = pix_payment.get('qr_image_url')
+            
+            if qr_image_url:
+                # Send QR code as image with caption
+                await message.reply_photo(
+                    photo=qr_image_url,
+                    caption=f"""🔄 **Renovação de Assinatura**
+
+� **Valor:** R$ {Config.SUBSCRIPTION_PRICE:.2f}
+📝 **Descrição:** Renovação de Assinatura VIP
+
+⚠️ **Após o pagamento, sua assinatura será estendida automaticamente por mais {Config.SUBSCRIPTION_DAYS} dias.**"""
+                )
+            else:
+                # Fallback to text-only version
+                payment_message = f"""
+�🔄 **Renovação de Assinatura**
 
 Valor: R$ {Config.SUBSCRIPTION_PRICE:.2f}
 Descrição: Renovação de Assinatura VIP
 
+```
 {qr_code}
+```
 
 Após o pagamento, sua assinatura será estendida automaticamente por mais {Config.SUBSCRIPTION_DAYS} dias.
 """
-            await message.reply_text(payment_message, parse_mode="Markdown")
+                await message.reply_text(payment_message)
         else:
             # Fallback to USDT
             usdt_instructions = self.usdt.get_payment_instructions(
@@ -225,356 +246,180 @@ Após o pagamento, sua assinatura será estendida automaticamente por mais {Conf
         if not query:
             return
 
-        user = query.from_user
-        if not user:
+        await query.answer()
+
+        user = update.effective_user
+        chat = update.effective_chat
+        callback_data = query.data
+
+        if not user or not chat:
             return
 
-        # Get user from database
+        # Only process in groups
+        if chat.type == "private":
+            await query.edit_message_text("❌ Pagamentos só podem ser feitos em grupos.")
+            return
+
+        # Get or create user
         db_user = self.db.query(User).filter_by(telegram_id=str(user.id)).first()
         if not db_user:
-            await query.answer("Usuário não encontrado. Tente novamente.")
-            return
+            db_user = User(
+                telegram_id=str(user.id),
+                username=user.username,
+                first_name=user.first_name,
+                last_name=user.last_name,
+            )
+            self.db.add(db_user)
+            self.db.commit()
 
-        payment_method = query.data
+        if callback_data == "pay_pix":
+            await self._process_pix_payment(query, db_user, user)
+        elif callback_data == "pay_usdt":
+            await self._process_usdt_payment(query, db_user, user)
+        else:
+            await query.edit_message_text("❌ Método de pagamento inválido.")
 
-        if payment_method == "pay_pix":
+    async def _process_pix_payment(self, query, db_user, user):
+        """Process PIX payment"""
+        try:
             # Create PIX payment
             pix_payment = self.pixgo.create_payment(
                 amount=Config.SUBSCRIPTION_PRICE,
-                description=f"Assinatura VIP - {user.username or user.first_name}",
+                description=f"Assinatura VIP - {user.first_name}",
                 payer_info={"telegram_id": str(user.id)},
             )
 
-            if pix_payment:
-                payment = Payment(
-                    user_id=db_user.id,
-                    pixgo_payment_id=pix_payment["payment_id"],
-                    amount=Config.SUBSCRIPTION_PRICE,
-                    payment_method="pix",
-                )
-                self.db.add(payment)
-                self.db.commit()
+            if not pix_payment:
+                await query.edit_message_text("❌ Erro ao criar pagamento PIX. Tente novamente.")
+                return
 
-                # Send QR code image
-                await query.message.reply_photo(
-                    photo=pix_payment["qr_image_url"],
-                    caption=f"""🎯 **Pagamento PIX**
+            # Get QR code
+            payment_id = pix_payment.get("payment_id", pix_payment.get("id", "unknown"))
+            qr_code = pix_payment.get("qr_code")
+            if not qr_code:
+                await query.edit_message_text("❌ Erro ao gerar QR Code. Tente novamente.")
+                return
 
-Valor: R$ {Config.SUBSCRIPTION_PRICE:.2f}
-Descrição: Assinatura VIP
-
-**Código PIX:**
-```
-{pix_payment["qr_code"]}
-```
-
-Após o pagamento, aguarde a confirmação automática.""",
-                    parse_mode="Markdown"
-                )
-                await query.answer("Pagamento PIX gerado com sucesso!")
-            else:
-                await query.message.reply_text("❌ Erro ao gerar pagamento PIX. Tente novamente.")
-                await query.answer("Erro no pagamento PIX")
-
-        elif payment_method == "pay_usdt":
-            # Create USDT payment
-            usdt_instructions = self.usdt.get_payment_instructions(
-                Config.SUBSCRIPTION_PRICE
-            )
-
+            # Save payment to database
             payment = Payment(
                 user_id=db_user.id,
                 amount=Config.SUBSCRIPTION_PRICE,
-                payment_method="usdt",
+                payment_method="pix",
+                pixgo_payment_id=payment_id,
+                status="pending",
             )
             self.db.add(payment)
             self.db.commit()
 
-            await query.message.reply_text(
-                f"""₿ **Pagamento USDT (Polygon)**
+            # Send payment details
+            qr_image_url = pix_payment.get('qr_image_url')
+            
+            if qr_image_url:
+                # Send QR code as image with caption
+                caption = f"""💰 **PAGAMENTO PIX GERADO**
 
-Valor: R$ {Config.SUBSCRIPTION_PRICE:.2f} ≈ ${Config.SUBSCRIPTION_PRICE * 0.2:.2f} USDT
-Descrição: Assinatura VIP
+👤 **Cliente:** {user.first_name}
+💵 **Valor:** R$ {Config.SUBSCRIPTION_PRICE:.2f}
+⏰ **Vencimento:** {pix_payment.get('expires_at', 'N/A')}
 
-{usdt_instructions}
+🔗 **Ou copie o código PIX:**
+```
+{pix_payment.get('brcode', 'N/A')}
+```
 
-Após o pagamento, aguarde a confirmação automática.""",
+⚠️ **Após o pagamento, envie o comprovante usando /proof**"""
+
+                await query.edit_message_caption(
+                    caption=caption,
+                    reply_markup=None
+                )
+                
+                # Send QR code image
+                await query.message.reply_photo(
+                    photo=qr_image_url,
+                    caption="📱 **QR Code PIX - Escaneie para pagar**"
+                )
+            else:
+                # Fallback to text-only version
+                payment_text = f"""
+💰 **PAGAMENTO PIX GERADO**
+
+👤 **Cliente:** {user.first_name}
+💵 **Valor:** R$ {Config.SUBSCRIPTION_PRICE:.2f}
+⏰ **Vencimento:** {pix_payment.get('expires_at', 'N/A')}
+
+📱 **Para pagar, escaneie o QR Code abaixo:**
+
+```
+{qr_code}
+```
+
+🔗 **Ou copie o código PIX:**
+```
+{pix_payment.get('brcode', 'N/A')}
+
+⚠️ **Após o pagamento, envie o comprovante usando /proof**
+"""
+
+                await query.edit_message_text(
+                    payment_text
+                )
+
+        except Exception as e:
+            logger.error(f"Erro ao processar pagamento PIX: {e}")
+            await query.edit_message_text("❌ Erro interno. Tente novamente.")
+
+    async def _process_usdt_payment(self, query, db_user, user):
+        """Process USDT payment"""
+        try:
+            # Create USDT payment record
+            payment = Payment(
+                user_id=db_user.id,
+                amount=Config.SUBSCRIPTION_PRICE,
+                payment_method="usdt",
+                status="waiting_proof",
+            )
+            self.db.add(payment)
+            self.db.commit()
+
+            # Send USDT payment instructions
+            usdt_text = f"""
+₿ **PAGAMENTO USDT (POLYGON)**
+
+👤 **Cliente:** {user.first_name}
+💵 **Valor:** R$ {Config.SUBSCRIPTION_PRICE:.2f}
+💎 **Valor em USDT:** ≈{(Config.SUBSCRIPTION_PRICE / 300):.4f} USDT
+
+🏦 **Carteira Polygon:**
+```
+{Config.USDT_WALLET_ADDRESS}
+```
+
+📋 **Instruções:**
+1. Envie exatamente **{(Config.SUBSCRIPTION_PRICE / 300):.4f} USDT** para o endereço acima
+2. Use a rede **Polygon** (não Ethereum mainnet)
+3. Tire uma foto/print do comprovante de transação
+4. Envie a imagem usando o comando **/proof** neste grupo
+
+⚠️ **IMPORTANTE:**
+- Envie apenas para a rede **Polygon**
+- Valor exato para evitar perdas
+- Comprovante obrigatório para ativação
+"""
+
+            await query.edit_message_text(
+                usdt_text,
                 parse_mode="Markdown"
             )
-            await query.answer("Instruções USDT enviadas!")
 
-        # Edit the original message to remove buttons
-        await query.message.edit_text(
-            f"""✅ **Método selecionado: {'PIX' if payment_method == 'pay_pix' else 'USDT'}**
-
-Valor: R$ {Config.SUBSCRIPTION_PRICE:.2f}
-Descrição: Assinatura VIP
-
-Aguarde as instruções de pagamento...""",
-            parse_mode="Markdown"
-        )
-
-    @measure_performance("user_handlers.help_handler_old")
-    async def help_handler_old(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /help command - show available commands"""
-        user = update.effective_user
-        message = update.message
-        chat = update.effective_chat
-        if not user or not message or not chat:
-            return
-
-        # Check if user is admin
-        from models.admin import Admin
-        is_admin = self.db.query(Admin).filter(Admin.telegram_id == user.id).first() is not None
-
-        logger.info(f"📖 HELP COMMAND: User {user.username or user.first_name} is_admin={is_admin}")
-
-        help_text = f"""
-🤖 **Bot VIP Telegram - Ajuda**
-
-Olá {user.first_name}! Aqui estão os comandos disponíveis:
-
----
-
-## � **Comandos de Usuário**
-
-`/start` — Inicia o bot e mostra informações básicas
-`/help` — Mostra esta mensagem de ajuda
-`/pay` — Gera QR Code ou link de pagamento para assinatura
-`/status` — Verifica o status da sua assinatura
-`/renew` — Renova sua assinatura automaticamente
-`/cancel` — Cancela a renovação automática da assinatura
-`/support` — Abre canal de suporte com administradores
-`/info` — Mostra informações sobre o grupo/mentoria
-`/invite` — Gera seu link pessoal de convite
-
----
-
-## 👑 **Comandos Administrativos**
-"""
-
-        if is_admin:
-            help_text += """
-### Gerenciamento de Membros
-`/add @usuario` — Adiciona manualmente um usuário
-`/kick @usuario` — Remove um usuário do grupo
-`/ban @usuario` — Bane permanentemente um usuário
-`/unban @usuario` — Remove o banimento de um usuário
-`/mute @usuario [tempo]` — Silencia um usuário por tempo determinado
-`/unmute @usuario` — Remove o silêncio de um usuário
-`/warn @usuario [motivo]` — Envia um aviso ao usuário
-`/resetwarn @usuario` — Zera os avisos do usuário
-`/userinfo @usuario` — Exibe informações detalhadas do usuário
-
-### Controle de Acesso & Assinaturas
-`/check @usuario` — Verifica status do pagamento/assinatura
-`/renew @usuario` — Renova manualmente a assinatura do usuário
-`/expire @usuario` — Expira manualmente o acesso do usuário
-`/pending` — Lista usuários com pagamentos pendentes
-
-### Comunicação & Anúncios
-`/broadcast [mensagem]` — Envia mensagem para todos os membros
-`/schedule [hora] [mensagem]` — Programa mensagem automática
-`/rules` — Envia as regras do grupo
-`/welcome` — Define mensagem de boas-vindas
-`/sendto @usuario [mensagem]` — Envia mensagem privada
-
-### Configurações & Monitoramento
-`/settings` — Abre painel de configurações do bot
-`/admins` — Lista todos os administradores
-`/stats` — Mostra estatísticas do grupo
-`/logs` — Exibe últimas ações do bot
-`/backup` — Exporta dados do grupo
-`/restore` — Importa backup anterior
-
-### Configuração do Sistema
-`/setprice [valor] [moeda]` — Define preço da assinatura
-`/settime [dias]` — Define duração do acesso
-`/setwallet [endereço]` — Define carteira para pagamentos
-`/register_group` — Registra o grupo atual
-`/group_id` — Mostra ID do grupo atual
-
----
-"""
-        else:
-            help_text += """
-*Comandos administrativos disponíveis apenas para admins.*
-"""
-
-        help_text += """
-� **Dicas:**
-• Use comandos apenas em grupos (exceto /start em privado)
-• Mencione usuários com @ para comandos que requerem alvo
-• Alguns comandos podem ter parâmetros opcionais entre []
-
-📞 **Suporte:** Use /support para falar com administradores
-"""
-
-    @measure_performance("user_handlers.cancel_handler")
-    async def cancel_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /cancel command - disable auto-renewal"""
-        user = update.effective_user
-        message = update.message
-        chat = update.effective_chat
-        if not user or not message or not chat:
-            return
-
-        # User commands should work in groups only
-        if chat.type == "private":
-            await message.reply_text("❌ Comandos de usuário só podem ser executados em grupos.")
-            return
-
-        # Find user in database
-        db_user = self.db.query(User).filter_by(telegram_id=str(user.id)).first()
-        if not db_user:
-            await message.reply_text("❌ Usuário não encontrado. Use /start primeiro.")
-            return
-
-        # Check if user has active subscription
-        if db_user.status_assinatura != "active":
-            await message.reply_text("❌ Você não possui uma assinatura ativa para cancelar.")
-            return
-
-        # Disable auto-renewal
-        db_user.auto_renew = False
-        self.db.commit()
-
-        await message.reply_text(
-            "✅ **Renovação automática desabilitada com sucesso!**\n\n"
-            "Sua assinatura atual permanecerá ativa até a data de expiração.\n"
-            "Para reativar a renovação automática, entre em contato com o suporte."
-        )
-
-    @measure_performance("user_handlers.support_handler")
-    async def support_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /support command - provide support contact information"""
-        user = update.effective_user
-        message = update.message
-        chat = update.effective_chat
-        if not user or not message or not chat:
-            return
-
-        # User commands should work in groups only
-        if chat.type == "private":
-            await message.reply_text("❌ Comandos de usuário só podem ser executados em grupos.")
-            return
-
-        support_text = """
-🆘 **Suporte Técnico**
-
-Para obter ajuda, entre em contato conosco:
-
-📧 **Email:** suporte@viptelegram.com
-💬 **Telegram:** @suporte_vip_bot
-📱 **WhatsApp:** +55 11 99999-9999
-
-⏰ **Horário de atendimento:**
-Segunda a Sexta: 9h às 18h
-Sábado: 9h às 12h
-
-📋 **Antes de contactar, verifique:**
-• Status da sua assinatura com /status
-• Histórico de pagamentos com /payment_history
-• Grupos disponíveis com /groups
-
-Para questões urgentes, use o Telegram @suporte_vip_bot
-"""
-        await message.reply_text(support_text, parse_mode="Markdown")
-
-    @measure_performance("user_handlers.info_handler")
-    async def info_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /info command - show VIP group/mentorship information"""
-        user = update.effective_user
-        message = update.message
-        chat = update.effective_chat
-        if not user or not message or not chat:
-            return
-
-        # User commands should work in groups only
-        if chat.type == "private":
-            await message.reply_text("❌ Comandos de usuário só podem ser executados em grupos.")
-            return
-
-        info_text = """
-ℹ️ **Sobre o Grupo VIP Telegram**
-
-🎯 **O que oferecemos:**
-• Acesso exclusivo a grupos VIP do Telegram
-• Conteúdo premium e atualizações diárias
-• Suporte prioritário 24/7
-• Comunidade ativa de profissionais
-
-💰 **Planos e Preços:**
-• **Básico:** R$ {Config.SUBSCRIPTION_PRICE:.2f} por {Config.SUBSCRIPTION_DAYS} dias
-• **Renovação automática:** Disponível (pode ser desabilitada com /cancel)
-
-📊 **Estatísticas:**
-• +1000 membros ativos
-• 15+ grupos especializados
-• Atualização diária de conteúdo
-
-🚀 **Como participar:**
-1. Use /pay para fazer o pagamento
-2. Aguarde a confirmação do pagamento
-3. Use /join para entrar nos grupos disponíveis
-
-📞 **Dúvidas?** Use /support para falar conosco
-
-🌟 **Junte-se à nossa comunidade VIP hoje mesmo!**
-"""
-        await message.reply_text(info_text, parse_mode="Markdown")
-
-    async def invite_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /invite command"""
-        user = update.effective_user
-        message = update.message
-        chat = update.effective_chat
-        if not user or not message or not chat:
-            return
-
-        # User commands should work in groups only
-        if chat.type == "private":
-            await message.reply_text("❌ Comandos de usuário só podem ser executados em grupos.")
-            return
-
-        # Check if user has active subscription
-        db_user = self.db.query(User).filter_by(telegram_id=str(user.id)).first()
-        if not db_user:
-            await message.reply_text("Usuário não encontrado. Use /pay para assinar primeiro.")
-            return
-
-        # Check subscription status
-        status = str(db_user.status_assinatura)
-        if status != "ativo":
-            await message.reply_text("Você precisa ter uma assinatura ativa para gerar links de convite.")
-            return
-
-        # Generate unique invite code (simple implementation)
-        import uuid
-        invite_code = str(uuid.uuid4())[:8]  # Short unique code
-
-        # Derive bot username from token (basic implementation)
-        bot_username = Config.TELEGRAM_TOKEN.split(':')[0] if Config.TELEGRAM_TOKEN else "bot"
-
-        # For now, create a simple invite link format
-        # In a full implementation, this would create a real Telegram invite link
-        invite_link = f"https://t.me/{bot_username}?start=invite_{invite_code}"
-
-        invite_text = f"""
-🎫 **Link de Convite**
-
-Seu link de convite exclusivo:
-{invite_link}
-
-Este link permite que novos usuários se juntem ao grupo VIP.
-*Rastreamento será implementado em breve.*
-"""
-        await message.reply_text(invite_text, parse_mode="Markdown")
+        except Exception as e:
+            logger.error(f"Erro ao processar pagamento USDT: {e}")
+            import time
+            await query.edit_message_text(f"❌ Erro interno. Tente novamente. ({int(time.time())})")
 
     @measure_performance("user_handlers.help_handler")
     async def help_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /help command - show available commands"""
-        logger.info("📖 HELP HANDLER: Called!")
+        """Handle /help command"""
         user = update.effective_user
         message = update.message
         chat = update.effective_chat
@@ -583,192 +428,144 @@ Este link permite que novos usuários se juntem ao grupo VIP.
 
         # Check if user is admin
         from models.admin import Admin
-        is_admin = self.db.query(Admin).filter(Admin.telegram_id == user.id).first() is not None
+        is_admin = self.db.query(Admin).filter(Admin.telegram_id == str(user.id)).first() is not None
 
-        # Determine help content based on chat type
-        if chat.type == "private":
-            # In private chat with bot: show ALL commands (admin interface)
-            help_text = f"""
-🤖 **Bot VIP Telegram - Painel Administrativo**
+        if is_admin:
+            # Admin help
+            help_text = """
+🤖 **BOT VIP TELEGRAM - PAINEL ADMIN**
 
-Olá {user.first_name}! Como administrador, você tem acesso a todos os comandos:
+👑 **Comandos de Administração:**
 
----
+👥 **Gerenciamento de Membros:**
+• `/add @usuario` - Adicionar membro
+• `/kick @usuario` - Expulsar membro
+• `/ban @usuario` - Banir membro
+• `/unban @usuario` - Desbanir membro
+• `/mute @usuario [tempo]` - Silenciar membro
+• `/unmute @usuario` - Dessilenciar membro
 
-## 👤 **Comandos de Usuário**
+⚠️ **Sistema de Avisos:**
+• `/warn @usuario [motivo]` - Dar aviso
+• `/resetwarn @usuario` - Resetar avisos
 
-`/start` — Inicia o bot e mostra informações básicas
-`/help` — Mostra esta mensagem de ajuda
-`/pay` — Gera QR Code ou link de pagamento para assinatura
-`/status` — Verifica o status da sua assinatura
-`/renew` — Renova sua assinatura automaticamente
-`/cancel` — Cancela a renovação automática da assinatura
-`/support` — Abre canal de suporte com administradores
-`/info` — Mostra informações sobre o grupo/mentoria
-`/invite` — Gera seu link pessoal de convite
+💰 **Pagamentos:**
+• `/pending` - Ver pagamentos pendentes
+• `/confirm ID` - Confirmar pagamento
+• `/reject ID` - Rejeitar pagamento
 
----
+⚙️ **Configurações:**
+• `/setprice valor` - Alterar preço
+• `/settime dias` - Alterar duração
+• `/setwallet endereco` - Alterar carteira USDT
 
-## 👑 **Comandos Administrativos**
-"""
-            # Always show admin commands in private chat
-            help_text += """
-### Gerenciamento de Membros
-`/add @usuario` — Adiciona manualmente um usuário
-`/addadmin @usuario` — Adiciona um novo administrador
-`/kick @usuario` — Remove um usuário do grupo
-`/ban @usuario` — Bane permanentemente um usuário
-`/unban @usuario` — Remove o banimento de um usuário
-`/mute @usuario [tempo]` — Silencia um usuário por tempo determinado
-`/unmute @usuario` — Remove o silêncio de um usuário
-`/warn @usuario [motivo]` — Envia um aviso ao usuário
-`/resetwarn @usuario` — Zera os avisos do usuário
-`/userinfo @usuario` — Exibe informações detalhadas do usuário
+📊 **Estatísticas:**
+• `/stats` - Ver estatísticas
+• `/logs` - Ver logs recentes
 
-### Controle de Acesso & Assinaturas
-`/check @usuario` — Verifica status do pagamento/assinatura
-`/renew @usuario` — Renova manualmente a assinatura do usuário
-`/expire @usuario` — Expira manualmente o acesso do usuário
-`/pending` — Lista usuários com pagamentos pendentes
-
-### Comunicação & Anúncios
-`/broadcast [mensagem]` — Envia mensagem para todos os membros
-`/schedule [hora] [mensagem]` — Programa mensagem automática
-`/rules` — Envia as regras do grupo
-`/welcome` — Define mensagem de boas-vindas
-`/sendto @usuario [mensagem]` — Envia mensagem privada
-
-### Configurações & Monitoramento
-`/settings` — Abre painel de configurações do bot
-`/admins` — Lista todos os administradores
-`/stats` — Mostra estatísticas do grupo
-`/logs` — Exibe últimas ações do bot
-`/backup` — Exporta dados do grupo
-`/restore` — Importa backup anterior
-
-### Configuração do Sistema
-`/setprice [valor] [moeda]` — Define preço da assinatura
-`/settime [dias]` — Define duração do acesso
-`/setwallet [endereço]` — Define carteira para pagamentos
-`/register_group` — Registra o grupo atual
-`/group_id` — Mostra ID do grupo atual
-
----
+📋 **Outros:**
+• `/rules` - Ver regras
+• `/welcome` - Configurar boas-vindas
+• `/schedule` - Agendar mensagens
+• `/backup` - Fazer backup
+• `/restore` - Restaurar backup
 """
         else:
-            # In group: show only user commands
+            # User help
             help_text = f"""
-🤖 **Bot VIP Telegram - Ajuda**
+🤖 **BOT VIP TELEGRAM**
 
-Olá {user.first_name}! Aqui estão os comandos disponíveis para usuários:
+💰 **Preço:** R$ {Config.SUBSCRIPTION_PRICE}
+⏰ **Duração:** {Config.SUBSCRIPTION_DAYS} dias
 
----
+📋 **Comandos Disponíveis:**
 
-## 👤 **Comandos de Usuário**
+🚀 **Básicos:**
+• `/start` - Iniciar bot
+• `/help` - Esta mensagem
+• `/status` - Ver seu status
+• `/info` - Informações do grupo
 
-`/start` — Inicia o bot e mostra informações básicas
-`/help` — Mostra esta mensagem de ajuda
-`/pay` — Gera QR Code ou link de pagamento para assinatura
-`/status` — Verifica o status da sua assinatura
-`/renew` — Renova sua assinatura automaticamente
-`/cancel` — Cancela a renovação automática da assinatura
-`/support` — Abre canal de suporte com administradores
-`/info` — Mostra informações sobre o grupo/mentoria
-`/invite` — Gera seu link pessoal de convite
+💳 **Pagamentos:**
+• `/pay` - Gerar pagamento da assinatura
+• `/renew` - Renovar assinatura
+• `/cancel` - Cancelar assinatura
 
----
+🆘 **Suporte:**
+• `/support` - Contatar suporte
+• `/invite` - Gerar link de convite
 
-*Para comandos administrativos, use o chat privado com o bot.*
-"""
+📸 **Comprovantes:**
+• `/proof` - Enviar comprovante (após pagar)
 
-        if chat.type == "private":
-            # Admin tips in private chat
-            help_text += """
-💡 **Dicas Administrativas:**
-• Use este chat privado para todos os comandos administrativos
-• Mencione usuários com @ para comandos que requerem alvo
-• Alguns comandos podem ter parâmetros opcionais entre []
-• Use /register_group em um grupo para registrá-lo
-• Use /group_id para obter o ID de qualquer grupo
-
-📞 **Suporte:** Você é o administrador - gerencie tudo aqui!
-"""
-        else:
-            # User tips in group
-            help_text += """
-💡 **Dicas:**
-• Use comandos apenas em grupos
-• Para comandos administrativos, fale comigo em privado
-• Mencione usuários com @ para comandos que requerem alvo
-• Alguns comandos podem ter parâmetros opcionais entre []
-
-📞 **Suporte:** Use /support para falar com administradores
+⚠️ **IMPORTANTE:**
+• Todos os comandos funcionam apenas em grupos
+• Use `/pay` para assinar ou renovar
+• Envie comprovantes após pagamentos
 """
 
         await message.reply_text(help_text, parse_mode="Markdown")
 
     @measure_performance("user_handlers.proof_handler")
     async def proof_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle USDT payment proof submission"""
+        """Handle photo proofs sent in private chats"""
         user = update.effective_user
         message = update.message
         if not user or not message:
             return
 
-        # Only process in private chats for security
+        # Only process in private chats
         if update.effective_chat.type != "private":
             return
 
-        # Check if message has photo (proof image)
+        # Check if message has photo
         if not message.photo:
-            await message.reply_text("❌ Envie uma imagem do comprovante de pagamento USDT.")
+            await message.reply_text("❌ Envie uma foto do comprovante de pagamento.")
             return
 
-        # Get user's pending USDT payment
-        db_user = self.db.query(User).filter_by(telegram_id=str(user.id)).first()
-        if not db_user:
-            await message.reply_text("❌ Usuário não encontrado.")
-            return
+        # Get the largest photo
+        photo = message.photo[-1]
 
-        pending_payment = self.db.query(Payment).filter_by(
-            user_id=db_user.id,
-            payment_method="usdt",
-            status="pending"
-        ).first()
+        try:
+            # Download photo
+            file = await context.bot.get_file(photo.file_id)
+            photo_url = file.file_path
 
-        if not pending_payment:
-            await message.reply_text("❌ Você não tem pagamentos USDT pendentes.")
-            return
+            # Check for pending USDT payment
+            pending_payment = self.db.query(Payment).filter_by(
+                user_id=self.db.query(User).filter_by(telegram_id=str(user.id)).first().id,
+                status="waiting_proof"
+            ).first()
 
-        # Get the photo file
-        photo = message.photo[-1]  # Get the highest resolution photo
-        file = await context.bot.get_file(photo.file_id)
+            if not pending_payment:
+                await message.reply_text("❌ Nenhum pagamento pendente encontrado. Use /pay primeiro.")
+                return
 
-        # Generate proof image URL (you might want to upload to a storage service)
-        proof_image_url = f"https://api.telegram.org/file/bot{context.bot.token}/{file.file_path}"
+            # Update payment with proof
+            from datetime import datetime
+            pending_payment.proof_image_url = photo_url
+            pending_payment.status = "waiting_proof"
+            pending_payment.proof_submitted_at = datetime.now()
+            self.db.commit()
 
-        # Update payment with proof
-        from datetime import datetime
-        pending_payment.proof_image_url = proof_image_url
-        pending_payment.status = "waiting_proof"
-        pending_payment.proof_submitted_at = datetime.utcnow()
-        self.db.commit()
+            # Notify user
+            await message.reply_text(
+                "✅ **Comprovante recebido!**\n\n"
+                "Seu comprovante foi enviado para análise dos administradores.\n"
+                "Você será notificado quando for aprovado.",
+                parse_mode="Markdown"
+            )
 
-        # Notify user
-        await message.reply_text(
-            "✅ **Comprovante recebido!**\n\n"
-            "Seu comprovante foi enviado para análise dos administradores.\n"
-            "Você será notificado quando for aprovado.",
-            parse_mode="Markdown"
-        )
+            # Notify admins about new proof
+            await self._notify_admins_new_proof(pending_payment, user, context)
 
-        # Notify admins about new proof
-        await self._notify_admins_new_proof(pending_payment, user)
+        except Exception as e:
+            logger.error(f"Erro ao processar comprovante: {e}")
+            await message.reply_text("❌ Erro ao processar comprovante. Tente novamente.")
 
-    async def _notify_admins_new_proof(self, payment: Payment, user):
+    async def _notify_admins_new_proof(self, payment: Payment, user, context=None):
         """Notify all admins about new USDT payment proof"""
         from models.admin import Admin
-        from telegram import Bot
 
         admins = self.db.query(Admin).all()
 
@@ -786,10 +583,90 @@ Use /pending para ver todos os pagamentos pendentes.
 
         for admin in admins:
             try:
-                await self.application.bot.send_message(
-                    chat_id=admin.telegram_id,
-                    text=notification_text,
-                    parse_mode="Markdown"
-                )
+                if context and hasattr(context, 'bot'):
+                    await context.bot.send_message(
+                        chat_id=admin.telegram_id,
+                        text=notification_text,
+                        parse_mode="Markdown"
+                    )
+                else:
+                    logger.error("Context not available for admin notification")
             except Exception as e:
                 logger.error(f"Failed to notify admin {admin.telegram_id}: {e}")
+
+    @measure_performance("user_handlers.cancel_handler")
+    async def cancel_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /cancel command"""
+        user = update.effective_user
+        message = update.message
+        chat = update.effective_chat
+        if not user or not message or not chat:
+            return
+
+        if chat.type == "private":
+            await message.reply_text("❌ Comandos de usuário só podem ser executados em grupos.")
+            return
+
+        await message.reply_text("Função de cancelamento em desenvolvimento.")
+
+    @measure_performance("user_handlers.support_handler")
+    async def support_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /support command"""
+        user = update.effective_user
+        message = update.message
+        chat = update.effective_chat
+        if not user or not message or not chat:
+            return
+
+        if chat.type == "private":
+            await message.reply_text("❌ Comandos de usuário só podem ser executados em grupos.")
+            return
+
+        await message.reply_text("Para suporte, contate os administradores do grupo.")
+
+    @measure_performance("user_handlers.info_handler")
+    async def info_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /info command"""
+        user = update.effective_user
+        message = update.message
+        chat = update.effective_chat
+        if not user or not message or not chat:
+            return
+
+        if chat.type == "private":
+            await message.reply_text("❌ Comandos de usuário só podem ser executados em grupos.")
+            return
+
+        info_text = f"""
+📊 **INFORMAÇÕES DO GRUPO**
+
+🏷️ **Nome:** {chat.title or 'N/A'}
+🆔 **ID:** {chat.id}
+👥 **Tipo:** {chat.type}
+📅 **Criado em:** {chat.date if hasattr(chat, 'date') else 'N/A'}
+
+💰 **Preço da Assinatura:** R$ {Config.SUBSCRIPTION_PRICE}
+⏰ **Duração:** {Config.SUBSCRIPTION_DAYS} dias
+"""
+
+        await message.reply_text(info_text, parse_mode="Markdown")
+
+    @measure_performance("user_handlers.invite_handler")
+    async def invite_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /invite command"""
+        user = update.effective_user
+        message = update.message
+        chat = update.effective_chat
+        if not user or not message or not chat:
+            return
+
+        if chat.type == "private":
+            await message.reply_text("❌ Comandos de usuário só podem ser executados em grupos.")
+            return
+
+        try:
+            invite_link = await context.bot.create_chat_invite_link(chat.id)
+            await message.reply_text(f"🔗 Link de convite: {invite_link.invite_link}")
+        except Exception as e:
+            logger.error(f"Erro ao criar link de convite: {e}")
+            await message.reply_text("❌ Erro ao gerar link de convite.")

@@ -17,6 +17,7 @@ from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
+    CallbackQueryHandler,
     filters,
     ChatMemberHandler,
 )
@@ -126,6 +127,9 @@ def setup_handlers(application: Application, user_handlers: UserHandlers, admin_
     application.add_handler(CommandHandler("info", user_handlers.info_handler))
     application.add_handler(CommandHandler("invite", user_handlers.invite_handler))
 
+    # Callback handlers for payment buttons
+    application.add_handler(CallbackQueryHandler(user_handlers.payment_callback_handler, pattern="^pay_"))
+
     # Admin commands
     admin_cmds = [
         ("add", admin_handlers.add_handler),
@@ -180,101 +184,6 @@ def setup_handlers(application: Application, user_handlers: UserHandlers, admin_
 
     logging.info("Handlers registrados com sucesso.")
 
-# ---------- RUNNER (polling / webhook robusto) ----------
-async def run_polling_loop(application: Application):
-    """
-    Loop de polling robusto com tratamento de erros e backoff.
-    Garante que webhook seja deletado e aplica reconexões com backoff.
-    """
-    max_retries = 5
-    retry_delay = 5.0
-
-    for attempt in range(max_retries):
-        try:
-            logging.info(f"Inicializando bot (tentativa {attempt + 1}/{max_retries})")
-            # Test connectivity
-            try:
-                me = await application.bot.get_me()
-                logging.info(f"Conectado ao Telegram: @{me.username} (id={me.id})")
-            except Exception as conn_err:
-                logging.error(f"Não foi possível conectar ao Telegram: {conn_err}")
-                raise
-
-            await application.initialize()
-            # Escolha webhook vs polling
-            webhook_url = os.getenv("WEBHOOK_URL")
-            port = os.getenv("PORT")
-            use_webhook = bool(webhook_url and port and os.getenv("ENVIRONMENT") == "production")
-
-            if use_webhook:
-                try:
-                    await application.bot.set_webhook(url=webhook_url, allowed_updates=["message", "callback_query", "chat_member"])
-                    logging.info("Webhook configurado com sucesso.")
-                    # Em webhook, normalmente o servidor HTTP cuidará das atualizações
-                    # Aqui assumimos que infra web está disponível
-                except Exception as wh_err:
-                    logging.warning(f"Falha ao configurar webhook: {wh_err}. CAINDO para polling.")
-                    use_webhook = False
-
-            if not use_webhook:
-                # Polling mode
-                try:
-                    await application.bot.delete_webhook(drop_pending_updates=True)
-                except Exception:
-                    logging.debug("Nenhum webhook para deletar ou falha ao deletar.")
-
-                logging.info("Bot iniciado com polling manual.")
-
-                consecutive_errors = 0
-                max_consecutive = 10
-                base_delay = 1.0
-                max_delay = 60.0
-                poll_cycle = 0
-                last_update_id = 0  # Para controlar o offset das mensagens
-
-                while True:
-                    poll_cycle += 1
-                    try:
-                        async with asyncio.timeout(30):
-                            updates = await application.bot.get_updates(
-                                offset=last_update_id + 1,
-                                timeout=25,
-                                allowed_updates=["message", "callback_query", "chat_member"]
-                            )
-                        if updates:
-                            for update in updates:
-                                try:
-                                    await application.process_update(update)
-                                    last_update_id = max(last_update_id, update.update_id)
-                                except Exception as e:
-                                    logging.error(f"Erro ao processar update {getattr(update, 'update_id', '?')}: {e}")
-                            consecutive_errors = 0
-                        await asyncio.sleep(0.1)
-                    except asyncio.TimeoutError:
-                        consecutive_errors = 0
-                        await asyncio.sleep(0.1)
-                    except (telegram.error.NetworkError, httpx.ReadError, httpx.ConnectError) as net_err:
-                        consecutive_errors += 1
-                        delay = min(base_delay * (2 ** consecutive_errors), max_delay)
-                        logging.warning(f"Erro de rede (#{consecutive_errors}): {net_err}. Retry em {delay:.1f}s")
-                        if consecutive_errors >= max_consecutive:
-                            logging.error("Muitos erros consecutivos de rede. Reiniciando processo de inicialização.")
-                            raise net_err
-                        await asyncio.sleep(delay)
-                    except Exception as e:
-                        logging.error(f"Erro inesperado no loop de polling: {e}")
-                        await asyncio.sleep(1)
-
-        except Exception as e:
-            logging.error(f"Erro na execução do bot (attempt {attempt + 1}): {e}")
-            if attempt < max_retries - 1:
-                logging.info(f"Retry em {retry_delay}s...")
-                await asyncio.sleep(retry_delay)
-                retry_delay *= 1.5
-            else:
-                logging.error("Máximo de tentativas atingido. Abortando.")
-                raise
-
 # ---------- ASYNC MAIN (inicia serviços concorrentes) ----------
 async def main_async(application: Application, mute_service: MuteService):
     # Start mute/background services
@@ -284,7 +193,11 @@ async def main_async(application: Application, mute_service: MuteService):
         logging.error(f"Falha ao iniciar mute service: {e}")
 
     try:
-        await run_polling_loop(application)
+        # Use standard polling instead of manual loop
+        await application.run_polling(
+            allowed_updates=["message", "callback_query", "chat_member"],
+            drop_pending_updates=True
+        )
     except KeyboardInterrupt:
         logging.info("Sinal de interrupção recebido.")
     finally:
@@ -329,8 +242,18 @@ def main():
         # Registra handlers
         setup_handlers(application, user_handlers, admin_handlers, services["mute"])
 
-        # Executa loop principal (bloqueante)
-        asyncio.run(main_async(application, services["mute"]))
+        # Start mute service
+        try:
+            # Skip mute service for now to test payments
+            pass
+        except Exception as e:
+            logging.error(f"Falha ao iniciar mute service: {e}")
+
+        # Run polling
+        application.run_polling(
+            allowed_updates=["message", "callback_query", "chat_member"],
+            drop_pending_updates=True
+        )
 
     except Exception as e:
         logging.error(f"CRITICAL ERROR no main(): {e}")
