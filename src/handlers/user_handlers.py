@@ -38,43 +38,26 @@ class UserHandlers:
 
         logger.info(f"🚀 START COMMAND: from {user.username or user.first_name} in {chat.type} chat {chat.id}")
 
-        if chat.type == "private":
-            # Welcome message for private chats
-            private_welcome = f"""
+        # Unified welcome message for both private and group chats
+        welcome_text = f"""
 👋 Olá {user.first_name}!
 
 🤖 **Bot VIP Telegram**
 
-Este bot gerencia acesso a grupos VIP através de assinaturas.
+Este bot gerencia acesso a grupos VIP através de assinaturas automáticas.
 
 💰 **Preço:** R$ {Config.SUBSCRIPTION_PRICE}
 ⏰ **Duração:** {Config.SUBSCRIPTION_DAYS} dias
 
 📱 **Como usar:**
-1. Adicione o bot a um grupo
-2. Use `/addadmin @seu_username` para se tornar admin
-3. Use `/help` no grupo para ver comandos
+• Use `/pay` para gerar pagamento da assinatura
+• Use `/status` para verificar sua assinatura
+• Use `/help` para ver todos os comandos disponíveis
 
-❓ **Suporte:** Use /help para mais informações
+❓ **Suporte:** Use /support para falar com administradores
 """
-            logger.info(f"✅ Sending private welcome to {user.first_name}")
-            await message.reply_text(private_welcome, parse_mode="Markdown")
-            return
 
-        # Group welcome message
-        welcome_text = f"""
-👋 Olá {user.first_name}!
-
-Bem-vindo ao Bot VIP Telegram! 🚀
-
-Este bot permite que você tenha acesso a grupos VIP exclusivos através de assinatura.
-
-💰 **Preço:** R$ {Config.SUBSCRIPTION_PRICE}
-⏰ **Duração:** {Config.SUBSCRIPTION_DAYS} dias
-
-Use /help para ver todos os comandos disponíveis.
-"""
-        logger.info(f"✅ Sending group welcome to {user.first_name}")
+        logger.info(f"✅ Sending unified welcome to {user.first_name}")
         await message.reply_text(welcome_text, parse_mode="Markdown")
 
     @measure_performance("user_handlers.pay_handler")
@@ -723,3 +706,90 @@ Olá {user.first_name}! Aqui estão os comandos disponíveis para usuários:
 """
 
         await message.reply_text(help_text, parse_mode="Markdown")
+
+    @measure_performance("user_handlers.proof_handler")
+    async def proof_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle USDT payment proof submission"""
+        user = update.effective_user
+        message = update.message
+        if not user or not message:
+            return
+
+        # Only process in private chats for security
+        if update.effective_chat.type != "private":
+            return
+
+        # Check if message has photo (proof image)
+        if not message.photo:
+            await message.reply_text("❌ Envie uma imagem do comprovante de pagamento USDT.")
+            return
+
+        # Get user's pending USDT payment
+        db_user = self.db.query(User).filter_by(telegram_id=str(user.id)).first()
+        if not db_user:
+            await message.reply_text("❌ Usuário não encontrado.")
+            return
+
+        pending_payment = self.db.query(Payment).filter_by(
+            user_id=db_user.id,
+            payment_method="usdt",
+            status="pending"
+        ).first()
+
+        if not pending_payment:
+            await message.reply_text("❌ Você não tem pagamentos USDT pendentes.")
+            return
+
+        # Get the photo file
+        photo = message.photo[-1]  # Get the highest resolution photo
+        file = await context.bot.get_file(photo.file_id)
+
+        # Generate proof image URL (you might want to upload to a storage service)
+        proof_image_url = f"https://api.telegram.org/file/bot{context.bot.token}/{file.file_path}"
+
+        # Update payment with proof
+        from datetime import datetime
+        pending_payment.proof_image_url = proof_image_url
+        pending_payment.status = "waiting_proof"
+        pending_payment.proof_submitted_at = datetime.utcnow()
+        self.db.commit()
+
+        # Notify user
+        await message.reply_text(
+            "✅ **Comprovante recebido!**\n\n"
+            "Seu comprovante foi enviado para análise dos administradores.\n"
+            "Você será notificado quando for aprovado.",
+            parse_mode="Markdown"
+        )
+
+        # Notify admins about new proof
+        await self._notify_admins_new_proof(pending_payment, user)
+
+    async def _notify_admins_new_proof(self, payment: Payment, user):
+        """Notify all admins about new USDT payment proof"""
+        from models.admin import Admin
+        from telegram import Bot
+
+        admins = self.db.query(Admin).all()
+
+        notification_text = f"""
+🔔 **Novo comprovante USDT recebido!**
+
+👤 **Usuário:** {user.first_name} (@{user.username or 'sem username'})
+💰 **Valor:** R$ {payment.amount:.2f}
+🆔 **ID do Pagamento:** {payment.id}
+
+📸 **Comprovante:** [Ver imagem]({payment.proof_image_url})
+
+Use /pending para ver todos os pagamentos pendentes.
+"""
+
+        for admin in admins:
+            try:
+                await self.application.bot.send_message(
+                    chat_id=admin.telegram_id,
+                    text=notification_text,
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                logger.error(f"Failed to notify admin {admin.telegram_id}: {e}")

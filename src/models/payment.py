@@ -14,7 +14,7 @@ class Payment(Base):
     pixgo_payment_id = Column(String, unique=True)
     amount = Column(Float, nullable=False)
     currency = Column(String, default="BRL")
-    status = Column(String, default="pending")  # pending, completed, failed, expired
+    status = Column(String, default="pending")  # pending, completed, failed, expired, waiting_proof
     payment_method = Column(String, default="pix")  # pix, usdt
     qr_code = Column(String)
     completed_at = Column(DateTime)
@@ -22,6 +22,11 @@ class Payment(Base):
     updated_at = Column(
         DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow
     )
+
+    # USDT proof fields
+    proof_image_url = Column(String)  # URL da imagem do comprovante
+    transaction_hash = Column(String)  # Hash da transação blockchain
+    proof_submitted_at = Column(DateTime)  # Quando o comprovante foi enviado
 
     # Relationships
     user = relationship("User", back_populates="payments")

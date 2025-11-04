@@ -911,8 +911,10 @@ class AdminHandlers:
             await message.reply_text("❌ Comandos administrativos só podem ser executados no chat privado com o bot.")
             return
 
-        # Get all pending payments
-        pending_payments = self.db.query(Payment).filter_by(status="pending").all()
+        # Get all pending payments (including waiting_proof)
+        pending_payments = self.db.query(Payment).filter(
+            Payment.status.in_(["pending", "waiting_proof"])
+        ).all()
 
         if not pending_payments:
             await message.reply_text("✅ Não há pagamentos pendentes.")
@@ -938,9 +940,20 @@ class AdminHandlers:
             total_amount = sum(p.amount for p in payments)
             payment_count = len(payments)
 
+            # Count different payment types
+            pix_count = len([p for p in payments if p.payment_method == "pix"])
+            usdt_pending_count = len([p for p in payments if p.payment_method == "usdt" and p.status == "pending"])
+            usdt_proof_count = len([p for p in payments if p.payment_method == "usdt" and p.status == "waiting_proof"])
+
             response_lines.append(f"👤 **{username}**")
             response_lines.append(f"   💰 Total pendente: R$ {total_amount:.2f}")
             response_lines.append(f"   📊 Pagamentos: {payment_count}")
+            if pix_count > 0:
+                response_lines.append(f"   💳 PIX: {pix_count} (automático)")
+            if usdt_pending_count > 0:
+                response_lines.append(f"   ₿ USDT pendente: {usdt_pending_count}")
+            if usdt_proof_count > 0:
+                response_lines.append(f"   📸 USDT c/ comprovante: {usdt_proof_count}")
             response_lines.append("")
 
         response_text = "\n".join(response_lines)
@@ -2014,3 +2027,134 @@ class AdminHandlers:
             logger.error(f"Failed quick restore: {e}")
             self.db.rollback()
             await message.reply_text("❌ Falha na restauração rápida.")
+
+    async def confirm_payment_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /confirm command - approve payment"""
+        user = update.effective_user
+        message = update.message
+        chat = update.effective_chat
+
+        if not user or not message or not chat:
+            return
+
+        # Check if user is admin
+        admin = self.db.query(Admin).filter_by(telegram_id=str(user.id)).first()
+        if not admin:
+            await message.reply_text("Acesso negado. Você não é um administrador.")
+            return
+
+        # FR-004: Restrict admin commands to private chat only
+        if chat.type != "private":
+            await message.reply_text("❌ Comandos administrativos só podem ser executados no chat privado com o bot.")
+            return
+
+        # Parse payment ID from args
+        if not context.args or len(context.args) < 1:
+            await message.reply_text("Uso: /confirm <payment_id>")
+            return
+
+        try:
+            payment_id = int(context.args[0])
+        except ValueError:
+            await message.reply_text("❌ ID do pagamento deve ser um número.")
+            return
+
+        # Get payment
+        payment = self.db.query(Payment).filter_by(id=payment_id).first()
+        if not payment:
+            await message.reply_text("❌ Pagamento não encontrado.")
+            return
+
+        if payment.status == "completed":
+            await message.reply_text("✅ Este pagamento já foi aprovado.")
+            return
+
+        # Update payment status
+        payment.status = "completed"
+        payment.completed_at = datetime.utcnow()
+        self.db.commit()
+
+        # Get user
+        db_user = self.db.query(User).filter_by(id=payment.user_id).first()
+        if db_user:
+            # Update user subscription
+            db_user.status_assinatura = "active"
+            db_user.data_expiracao = datetime.utcnow() + timedelta(days=30)  # 30 days
+            self.db.commit()
+
+            # Notify user
+            try:
+                await context.bot.send_message(
+                    chat_id=db_user.telegram_id,
+                    text=f"✅ **Pagamento Aprovado!**\n\n"
+                         f"💰 Valor: R$ {payment.amount:.2f}\n"
+                         f"⏰ Assinatura ativada por 30 dias\n\n"
+                         f"Aproveite seu acesso VIP!",
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                logger.error(f"Failed to notify user {db_user.telegram_id}: {e}")
+
+        await message.reply_text(f"✅ Pagamento {payment_id} aprovado com sucesso!")
+
+    async def reject_payment_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /reject command - reject payment"""
+        user = update.effective_user
+        message = update.message
+        chat = update.effective_chat
+
+        if not user or not message or not chat:
+            return
+
+        # Check if user is admin
+        admin = self.db.query(Admin).filter_by(telegram_id=str(user.id)).first()
+        if not admin:
+            await message.reply_text("Acesso negado. Você não é um administrador.")
+            return
+
+        # FR-004: Restrict admin commands to private chat only
+        if chat.type != "private":
+            await message.reply_text("❌ Comandos administrativos só podem ser executados no chat privado com o bot.")
+            return
+
+        # Parse payment ID from args
+        if not context.args or len(context.args) < 1:
+            await message.reply_text("Uso: /reject <payment_id>")
+            return
+
+        try:
+            payment_id = int(context.args[0])
+        except ValueError:
+            await message.reply_text("❌ ID do pagamento deve ser um número.")
+            return
+
+        # Get payment
+        payment = self.db.query(Payment).filter_by(id=payment_id).first()
+        if not payment:
+            await message.reply_text("❌ Pagamento não encontrado.")
+            return
+
+        if payment.status == "failed":
+            await message.reply_text("❌ Este pagamento já foi rejeitado.")
+            return
+
+        # Update payment status
+        payment.status = "failed"
+        self.db.commit()
+
+        # Get user
+        db_user = self.db.query(User).filter_by(id=payment.user_id).first()
+        if db_user:
+            # Notify user
+            try:
+                await context.bot.send_message(
+                    chat_id=db_user.telegram_id,
+                    text=f"❌ **Pagamento Rejeitado**\n\n"
+                         f"💰 Valor: R$ {payment.amount:.2f}\n\n"
+                         f"Se houve um erro, entre em contato com o suporte.",
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                logger.error(f"Failed to notify user {db_user.telegram_id}: {e}")
+
+        await message.reply_text(f"❌ Pagamento {payment_id} rejeitado.")

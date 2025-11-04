@@ -141,6 +141,8 @@ def setup_handlers(application: Application, user_handlers: UserHandlers, admin_
         ("sendto", admin_handlers.sendto_handler),
         ("userinfo", admin_handlers.userinfo_handler),
         ("pending", admin_handlers.pending_handler),
+        ("confirm", admin_handlers.confirm_payment_handler),
+        ("reject", admin_handlers.reject_payment_handler),
         ("setprice", admin_handlers.setprice_handler),
         ("settime", admin_handlers.settime_handler),
         ("setwallet", admin_handlers.setwallet_handler),
@@ -172,6 +174,9 @@ def setup_handlers(application: Application, user_handlers: UserHandlers, admin_
             logging.error(f"Erro group_message_test: {e}")
 
     application.add_handler(MessageHandler(filters.TEXT & filters.ChatType.GROUPS, group_message_test), group=-5)
+
+    # Handler for USDT payment proofs (photos in private chats)
+    application.add_handler(MessageHandler(filters.PHOTO & filters.ChatType.PRIVATE, user_handlers.proof_handler))
 
     logging.info("Handlers registrados com sucesso.")
 
