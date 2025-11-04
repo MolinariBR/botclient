@@ -62,22 +62,17 @@ Este bot gerencia acesso a grupos VIP através de assinaturas automáticas.
 
     @measure_performance("user_handlers.pay_handler")
     async def pay_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /pay command"""
+        """Handle /pay command - works in both private and group chats"""
         user = update.effective_user
         message = update.message
         chat = update.effective_chat
         if not user or not message or not chat:
             return
 
-        # User commands should work in groups only
-        if chat.type == "private":
-            await message.reply_text("❌ Comandos de usuário só podem ser executados em grupos.")
-            return
-
         # Check if user already has active subscription
         db_user = self.db.query(User).filter_by(telegram_id=str(user.id)).first()
         if db_user and db_user.status_assinatura == "active":
-            await message.reply_text("Você já possui uma assinatura ativa!")
+            await message.reply_text("✅ Você já possui uma assinatura ativa!")
             return
 
         # Create user if doesn't exist
@@ -113,16 +108,11 @@ Selecione uma das opções abaixo:""",
 
     @measure_performance("user_handlers.status_handler")
     async def status_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /status command"""
+        """Handle /status command - works in both private and group chats"""
         user = update.effective_user
         message = update.message
         chat = update.effective_chat
         if not user or not message or not chat:
-            return
-
-        # User commands should work in groups only
-        if chat.type == "private":
-            await message.reply_text("❌ Comandos de usuário só podem ser executados em grupos.")
             return
 
         db_user = self.db.query(User).filter_by(telegram_id=str(user.id)).first()
@@ -153,16 +143,11 @@ Expiração: {expiration_str}
 
     @measure_performance("user_handlers.renew_handler")
     async def renew_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /renew command"""
+        """Handle /renew command - works in both private and group chats"""
         user = update.effective_user
         message = update.message
         chat = update.effective_chat
         if not user or not message or not chat:
-            return
-
-        # User commands should work in groups only
-        if chat.type == "private":
-            await message.reply_text("❌ Comandos de usuário só podem ser executados em grupos.")
             return
 
         # Check if user exists and has active subscription
@@ -315,54 +300,59 @@ Após o pagamento, sua assinatura será estendida automaticamente por mais {Conf
             qr_image_url = pix_payment.get('qr_image_url')
             
             if qr_image_url:
-                # Send QR code as image with caption
-                caption = f"""💰 **PAGAMENTO PIX GERADO**
+                # First: Send info message
+                info_text = f"""💰 **PAGAMENTO PIX GERADO**
 
 👤 **Cliente:** {user.first_name}
 💵 **Valor:** R$ {Config.SUBSCRIPTION_PRICE:.2f}
-⏰ **Vencimento:** {pix_payment.get('expires_at', 'N/A')}
-
-🔗 **Ou copie o código PIX:**
-```
-{pix_payment.get('brcode', 'N/A')}
-```
-
-⚠️ **Após o pagamento, envie o comprovante usando /proof**"""
-
-                await query.edit_message_caption(
-                    caption=caption,
-                    reply_markup=None
-                )
+⏰ **Vencimento:** {pix_payment.get('expires_at', 'N/A')}"""
                 
-                # Send QR code image
+                await query.message.reply_text(info_text, parse_mode="Markdown")
+                
+                # Second: Send QR code as photo
                 await query.message.reply_photo(
                     photo=qr_image_url,
-                    caption="📱 **QR Code PIX - Escaneie para pagar**"
+                    caption="📱 QR Code PIX - Escaneie para pagar"
+                )
+                
+                # Third: Send copyable code WITHOUT Markdown to avoid parsing errors
+                qr_code = pix_payment.get("qr_code")
+                
+                code_text = f"""🔗 COPIE O CÓDIGO PIX:
+
+{qr_code}
+
+⚠️ Após o pagamento, envie o comprovante usando /proof"""
+                
+                await query.message.reply_text(code_text)
+                
+                # Update original message
+                await query.edit_message_text(
+                    "✅ Informações de pagamento enviadas!",
+                    reply_markup=None
                 )
             else:
-                # Fallback to text-only version
-                payment_text = f"""
-💰 **PAGAMENTO PIX GERADO**
+                # Fallback to text-only version - WITHOUT Markdown to avoid parsing errors
+                qr_code = pix_payment.get("qr_code")
+                
+                info_text = f"""💰 PAGAMENTO PIX GERADO
 
-👤 **Cliente:** {user.first_name}
-💵 **Valor:** R$ {Config.SUBSCRIPTION_PRICE:.2f}
-⏰ **Vencimento:** {pix_payment.get('expires_at', 'N/A')}
+👤 Cliente: {user.first_name}
+💵 Valor: R$ {Config.SUBSCRIPTION_PRICE:.2f}
+⏰ Vencimento: {pix_payment.get('expires_at', 'N/A')}"""
 
-📱 **Para pagar, escaneie o QR Code abaixo:**
+                await query.message.reply_text(info_text)
+                
+                code_text = f"""🔗 COPIE O CÓDIGO PIX:
 
-```
 {qr_code}
-```
 
-🔗 **Ou copie o código PIX:**
-```
-{pix_payment.get('brcode', 'N/A')}
-
-⚠️ **Após o pagamento, envie o comprovante usando /proof**
-"""
-
+⚠️ Após o pagamento, envie o comprovante usando /proof"""
+                
+                await query.message.reply_text(code_text)
+                
                 await query.edit_message_text(
-                    payment_text
+                    "✅ Informações de pagamento enviadas!"
                 )
 
         except Exception as e:
@@ -499,9 +489,9 @@ Após o pagamento, sua assinatura será estendida automaticamente por mais {Conf
 • `/proof` - Enviar comprovante (após pagar)
 
 ⚠️ **IMPORTANTE:**
-• Todos os comandos funcionam apenas em grupos
 • Use `/pay` para assinar ou renovar
-• Envie comprovantes após pagamentos
+• Envie comprovantes de pagamento após realizar a transação
+• Contate suporte em caso de dúvidas
 """
 
         await message.reply_text(help_text, parse_mode="Markdown")
@@ -603,10 +593,6 @@ Use /pending para ver todos os pagamentos pendentes.
         if not user or not message or not chat:
             return
 
-        if chat.type == "private":
-            await message.reply_text("❌ Comandos de usuário só podem ser executados em grupos.")
-            return
-
         await message.reply_text("Função de cancelamento em desenvolvimento.")
 
     @measure_performance("user_handlers.support_handler")
@@ -618,10 +604,6 @@ Use /pending para ver todos os pagamentos pendentes.
         if not user or not message or not chat:
             return
 
-        if chat.type == "private":
-            await message.reply_text("❌ Comandos de usuário só podem ser executados em grupos.")
-            return
-
         await message.reply_text("Para suporte, contate os administradores do grupo.")
 
     @measure_performance("user_handlers.info_handler")
@@ -631,10 +613,6 @@ Use /pending para ver todos os pagamentos pendentes.
         message = update.message
         chat = update.effective_chat
         if not user or not message or not chat:
-            return
-
-        if chat.type == "private":
-            await message.reply_text("❌ Comandos de usuário só podem ser executados em grupos.")
             return
 
         info_text = f"""
@@ -658,10 +636,6 @@ Use /pending para ver todos os pagamentos pendentes.
         message = update.message
         chat = update.effective_chat
         if not user or not message or not chat:
-            return
-
-        if chat.type == "private":
-            await message.reply_text("❌ Comandos de usuário só podem ser executados em grupos.")
             return
 
         try:
