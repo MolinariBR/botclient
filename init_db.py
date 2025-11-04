@@ -13,7 +13,7 @@ from sqlalchemy import create_engine
 from models.base import Base
 from models.user import User
 from models.payment import Payment
-from models.group import Group
+from models.group import Group, GroupMembership
 from models.admin import Admin
 from models.warning import Warning
 from models.system_config import SystemConfig
