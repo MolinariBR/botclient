@@ -240,11 +240,6 @@ Após o pagamento, sua assinatura será estendida automaticamente por mais {Conf
         if not user or not chat:
             return
 
-        # Only process in groups
-        if chat.type == "private":
-            await query.edit_message_text("❌ Pagamentos só podem ser feitos em grupos.")
-            return
-
         # Get or create user
         db_user = self.db.query(User).filter_by(telegram_id=str(user.id)).first()
         if not db_user:
